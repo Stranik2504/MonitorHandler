@@ -1,0 +1,6 @@
+﻿services:
+  monitorhandler:
+    image: monitorhandler
+    build:
+      context: .
+      dockerfile: MonitorHandler/Dockerfile

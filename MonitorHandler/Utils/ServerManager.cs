@@ -1,4 +1,5 @@
-﻿using Database;
+﻿using System.Security.Cryptography;
+using Database;
 using MonitorHandler.Models;
 using Newtonsoft.Json;
 
@@ -52,7 +53,7 @@ public class ServerManager
     {
         await ValidateUser(userId, userToken);
 
-        var token = await GenToken();
+        var token = GenToken();
 
         var result = await _db.Create("servers", new Dictionary<string, object>()
         {
@@ -135,6 +136,7 @@ public class ServerManager
         return record.Fields.GetString("token");
     }
 
+    // TODO: Realize it
     public async Task<Metric> GetLastMetric(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -357,7 +359,6 @@ public class ServerManager
         return true;
     }
 
-    // TODO: Finish it
     public async Task<bool> CreateScript(int userId, string userToken, int serverId, Script script)
     {
         await Validate(userId, userToken, serverId);
@@ -367,7 +368,16 @@ public class ServerManager
         if (string.IsNullOrWhiteSpace(record.Id))
             throw new Exception("Invalid server");
 
-        // TODO: Create file, write there script and set in script.Text filename
+        if (!Directory.Exists(ScriptFolder))
+            Directory.CreateDirectory(ScriptFolder);
+
+        var filename = string.Empty;
+
+        while (File.Exists(ScriptFolder + filename) || string.IsNullOrWhiteSpace(filename))
+            filename = Guid.NewGuid().ToString() + ".sh";
+
+        await File.WriteAllTextAsync(ScriptFolder + filename, script.Text);
+        script.Text = filename;
 
         var paramScript = new Dictionary<string, object>()
         {
@@ -407,7 +417,7 @@ public class ServerManager
     }
 
     // TODO: Finish it
-    public async Task<bool> RunCommand(int userId, string userToken, int serverId)
+    public async Task<bool> RunCommand(int userId, string userToken, int serverId, string command)
     {
         await Validate(userId, userToken, serverId);
 
@@ -473,10 +483,22 @@ public class ServerManager
         });
     }
 
-    // TODO: Make generate token
-    private Task<string> GenToken()
+    private string GenToken()
     {
-        return Task.FromResult("token");
+        const int tokenLength = 64;
+        const string chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+
+        var tokenChars = new char[tokenLength];
+        var randomBytes = new byte[tokenLength];
+
+
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+
+        for (var i = 0; i < tokenLength; i++)
+            tokenChars[i] = chars[randomBytes[i] % chars.Length];
+
+        return new string(tokenChars);
     }
 
     private async Task ValidateUser(int userId, string userToken)

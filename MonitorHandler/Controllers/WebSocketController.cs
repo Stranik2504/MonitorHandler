@@ -1,5 +1,7 @@
 ﻿using System.Net.WebSockets;
 using System.Text;
+using MonitorHandler.Utils;
+using Newtonsoft.Json;
 
 namespace MonitorHandler.Controllers;
 
@@ -10,35 +12,74 @@ public class WebSocketController (
 {
     private readonly WebSocket _webSocket = webSocket;
     private readonly ILogger<WebSocketController> _logger = logger;
+    private readonly CancellationToken _cancellationToken = CancellationToken.None;
+
+    private readonly SentMessage OkMessage = new SentMessage() { Type = TypeSentMessage.Ok, Data = string.Empty };
 
     // TODO: work with this
     public async Task Run()
     {
         var buffer = new byte[1024 * 4];
 
-        var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+        // Read message
+        var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
 
         while (!result.CloseStatus.HasValue)
         {
-            // Преобразуем полученное сообщение в строку
             var receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
-            Console.WriteLine($"Получено сообщение: {receivedMessage}");
+            _logger.LogInformation("[WebSocketController]: Received message: {Message}", receivedMessage);
 
-            // Здесь можно добавить обработку полученной информации от агента,
-            // например, сохранить метрики, информацию о Docker-контейнерах и т.д.
+            var message = JsonConvert.DeserializeObject<ReceivedMessage>(receivedMessage);
 
-            // Пример: отправляем обратно подтверждение получения
-            var responseMessage = Encoding.UTF8.GetBytes("Принято: " + receivedMessage);
+            if (message == null)
+            {
+                await Send(OkMessage, result.MessageType, result.EndOfMessage);
 
-            await webSocket.SendAsync(new ArraySegment<byte>(responseMessage, 0, responseMessage.Length),
-                result.MessageType, result.EndOfMessage, CancellationToken.None);
+                continue;
+            }
 
-            // Читаем следующее сообщение
-            result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            // ------------------[Обработка входных данных.]------------------
+
+            if (message.Type == TypeReceivedMessage.Start)
+            {
+                // TODO: get serverId from message
+                // token, metrics, docker_images, docker_containers
+
+                Program.WebSocketClients.Add(1, this);
+            }
+
+            // ---------------------------------------------------------------
+
+            var answer = await NeededRequest() ?? OkMessage;
+
+            await Send(answer, result.MessageType, result.EndOfMessage);
+
+            // Read the next message
+            result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
         }
 
         // Close connection
-        await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
+        // TODO: mark server as offline
+        await _webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, _cancellationToken);
         _logger.LogInformation("[WebSocketController]: WebSocket closed");
+    }
+
+    // TODO: Check list request to send and make request to it
+    private async Task<SentMessage?> NeededRequest()
+    {
+        return null;
+    }
+
+    private async Task Send(SentMessage message, WebSocketMessageType type, bool endOfMessage)
+    {
+        var messageString = JsonConvert.SerializeObject(message);
+        var messageBytes = Encoding.UTF8.GetBytes(messageString);
+
+        await _webSocket.SendAsync(
+            new ArraySegment<byte>(messageBytes, 0, messageBytes.Length),
+            type,
+            endOfMessage,
+            _cancellationToken
+        );
     }
 }
