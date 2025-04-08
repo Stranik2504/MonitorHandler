@@ -5,10 +5,10 @@ using MySql.Data.MySqlClient;
 
 namespace Database;
 
-public class MySql(string host, string database, string user, string password, ILogger<MySql>? logger = null)
+public class MySql(string host, int port, string database, string user, string password, ILogger<MySql>? logger = null)
     : IDatabase
 {
-    private readonly string _connectionString = $"Database={database};Datasource={host};User={user};Password={password};";
+    private readonly string _connectionString = $"Database={database};Server={host};Port={port};User={user};Password={password};";
 
     public void Start()
     {
@@ -125,6 +125,96 @@ public class MySql(string host, string database, string user, string password, I
         return (dct, id);
     }
 
+    public async Task<(IDictionary<string, object> Fields, string Id)> GetRecord(string tableName, params SearchField[] fields)
+    {
+        logger?.LogInformation("[MySQL]: Start Get record from table {TableName} by fields {Fields}", tableName, fields);
+
+        if (fields == null || fields.Length == 0)
+        {
+            logger?.LogInformation("[MySQL]: End Get record from table {TableName} by fields {Fields} because it is empty", tableName, fields);
+            return (new Dictionary<string, object>(), string.Empty);
+        }
+
+        var connection = CreateConnection();
+
+        if (fields[0].Match == Match.None)
+        {
+            logger?.LogInformation("[MySQL]: End Get record by match None from table {TableName} by fields {Fields}", tableName, fields);
+            return await GetRecordInAll(tableName, fields[0].NameField, fields[0].Field);
+        }
+
+        var request = $"SELECT * FROM {tableName} WHERE ";
+        const string fieldName = "@f";
+
+        await using var command = new MySqlCommand(string.Empty, connection);
+
+        for (var i = 0; i < fields.Length; i++)
+        {
+            var field = fields[i];
+            request += $"{field.NameField} = ";
+
+            var currFieldName = fieldName + i;
+
+            command.Parameters.Add(new MySqlParameter(currFieldName, field.Field));
+
+            if (field.TypeField == typeof(string))
+                currFieldName = $"'{currFieldName}'";
+
+            if (field.Match == Match.Partial)
+                request += $"%{currFieldName}%";
+            else
+                request += currFieldName;
+
+            if (field.Connection == Connection.NONE)
+                break;
+
+            if (i + 1 >= fields.Length)
+                continue;
+
+            if (field.Connection == Connection.AND)
+                request += " AND ";
+
+            if (field.Connection == Connection.OR)
+                request += " OR ";
+        }
+
+        command.CommandText = request;
+
+        logger?.LogInformation("[MySQL]: Request to database: {Request} (Command: {Command})", request, command);
+
+        await connection.OpenAsync();
+        var reader = await command.ExecuteReaderAsync();
+
+        logger?.LogInformation("[MySQL]: Start read record by command");
+
+        var dct = new Dictionary<string, object>();
+
+        if (await reader.ReadAsync())
+        {
+            var values = new object[reader.FieldCount];
+            var cnt = reader.GetValues(values);
+
+            for (var i = 0; i < cnt; i++)
+                dct.Add(reader.GetName(i), values[i]);
+        }
+
+        logger?.LogInformation("[MySQL]: End read record by command");
+
+        await CloseConnection(connection);
+
+        var id = string.Empty;
+
+        if (dct.TryGetValue("Id", out var idObj))
+            id = idObj.ToString() ?? string.Empty;
+
+        if (dct.TryGetValue("id", out idObj))
+            id = idObj.ToString() ?? string.Empty;
+
+        logger?.LogInformation("[MySQL]: End Get record from table {TableName} by fields {Fields}", tableName, fields);
+
+        return (dct, id);
+    }
+
     public async Task<(IDictionary<string, object> Fields, string Id)> GetRecordById(string tableName, string id)
     {
         logger?.LogInformation("[MySQL]: Start Get record by id from table {TableName} by id {Id}", tableName, id);
@@ -167,7 +257,6 @@ public class MySql(string host, string database, string user, string password, I
         return false;
     }
 
-    // TODO: Add transaction
     public async Task<bool> DeleteByField<T>(string tableName, string nameField, T field)
     {
         logger?.LogInformation("[MySQL]: Start delete record from table {TableName} by field {NameField} with value {Id}", tableName, nameField, field);
@@ -181,8 +270,26 @@ public class MySql(string host, string database, string user, string password, I
         command.Parameters.Add(new MySqlParameter("@id", field));
 
         await connection.OpenAsync();
-        var rows = await command.ExecuteNonQueryAsync();
-        await CloseConnection(connection);
+        var transaction = await connection.BeginTransactionAsync();
+        int rows;
+
+        try
+        {
+            rows = await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            logger?.LogError(e,
+                "[MySQL]: Error to delete record from table {TableName} by field {NameField} with value {Id}",
+                tableName, nameField, field);
+            return false;
+        }
+        finally
+        {
+            await CloseConnection(connection);
+        }
 
         logger?.LogInformation("[MySQL]: End delete record from table {TableName} by field {NameField} with value {Id} (Rows: {Rows})", tableName, nameField, field, rows);
 
@@ -210,7 +317,6 @@ public class MySql(string host, string database, string user, string password, I
         return false;
     }
 
-    // TODO: Add transaction
     public async Task<bool> UpdateByField<T>(string tableName, string nameField, T field, IDictionary<string, object> dct)
     {
         logger?.LogInformation("[SQLite]: Start update record by field from table {TableName} by field {NameField} with value {Field}", tableName, nameField, field);
@@ -239,15 +345,32 @@ public class MySql(string host, string database, string user, string password, I
         logger?.LogInformation("[MySQL]: Request to database: {Request}({Command})", request, command);
 
         await connection.OpenAsync();
-        var rows = await command.ExecuteNonQueryAsync();
-        await CloseConnection(connection);
+        var transaction = await connection.BeginTransactionAsync();
+        int rows;
+
+        try
+        {
+            rows = await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            logger?.LogError(e,
+                "[MySQL]: Error to update record by field from table {TableName} by field {NameField} with value {Field}",
+                tableName, nameField, field);
+            return false;
+        }
+        finally
+        {
+            await CloseConnection(connection);
+        }
 
         logger?.LogInformation("[MySQL]: End update record by field from table {TableName} by field {NameField} with value {Field} (rows: {Rows})", tableName, nameField, field, rows);
 
         return rows > 0;
     }
 
-    // TODO: Add transaction
     public async Task<(bool Success, string Id)> Create(string tableName, IDictionary<string, object> dct)
     {
         logger?.LogInformation("[MySQL]: Start create record in table {TableName}", tableName);
@@ -288,18 +411,34 @@ public class MySql(string host, string database, string user, string password, I
         logger?.LogInformation("[SQLite]: Request to database: {Request} (Command: {Command})", request, command);
 
         await connection.OpenAsync();
-        var rows = await command.ExecuteNonQueryAsync();
+        var transaction = await connection.BeginTransactionAsync();
+        int rows;
+
+        try
+        {
+            rows = await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            logger?.LogError(e, "[MySQL]: Error to create record in table {TableName}", tableName);
+            return (false, string.Empty);
+        }
+        finally
+        {
+            await CloseConnection(connection);
+        }
+
         var lastId = command.LastInsertedId;
-        await CloseConnection(connection);
 
         logger?.LogInformation("[SQLite]: End create record in table {TableName} (Rows: {Rows}, LastId: {LastId})", tableName, rows, lastId);
 
-        return rows == 0 ? (false, "") : (true, lastId.ToString());
+        return rows == 0 ? (false, string.Empty) : (true, lastId.ToString());
     }
 
     public T? GetId<T>(object obj) => obj.To<T>();
 
-    // TODO: Add transaction
     public async Task<bool> CreateTable(string nameTable, bool checkExists = true, params DbParam[] rows)
     {
         logger?.LogInformation("[MySQL]: Start create table {NameTable}", nameTable);
@@ -346,8 +485,24 @@ public class MySql(string host, string database, string user, string password, I
         logger?.LogInformation("[MySQL]: Request to database: {Request} (Command: {Command})", request, command);
 
         await connection.OpenAsync();
-        var result = await command.ExecuteNonQueryAsync();
-        await CloseConnection(connection);
+        var transaction = await connection.BeginTransactionAsync();
+        int result;
+
+        try
+        {
+            result = await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            logger?.LogError(e, "[MySQL]: Error to create table {NameTable}", nameTable);
+            return false;
+        }
+        finally
+        {
+            await CloseConnection(connection);
+        }
 
         logger?.LogInformation("[MySQL]: End create table {NameTable} (Result: {Result})", nameTable, result);
 
@@ -399,18 +554,22 @@ public class MySql(string host, string database, string user, string password, I
 
     public async Task<bool> RowExists(string tableName, string nameField)
     {
+        logger?.LogInformation("[MySQL]: Check exists row in table {TableName} by field {NameField}", tableName,
+            nameField);
+
+        var connection = CreateConnection();
+
         try
         {
-            logger?.LogInformation("[MySQL]: Check exists row in table {TableName} by field {NameField}", tableName, nameField);
-
-            var connection = CreateConnection();
-
             var command = new MySqlCommand(
-                $"SELECT EXISTS(SELECT 1 FROM {tableName} WHERE {nameField}={nameField});",
+                $"SELECT EXISTS(SELECT 1 FROM {tableName} WHERE {nameField}=1);",
                 connection
             );
 
-            logger?.LogInformation("[MySQL]: Request to database: {Request} (Command: {Command})", command.CommandText, command);
+            logger?.LogInformation("[MySQL]: Request to database: {Request} (Command: {Command})", command.CommandText,
+                command);
+
+            await connection.OpenAsync();
 
             var reader = await command.ExecuteReaderAsync();
 
@@ -419,15 +578,17 @@ public class MySql(string host, string database, string user, string password, I
                 return reader.GetInt32(0) == 1;
             }
 
-            await CloseConnection(connection);
-
-            logger?.LogInformation("[MySQL]: End check exists row in table {TableName} by field {NameField}", tableName, nameField);
-
             return true;
         }
         catch
         {
             // ignored
+        }
+        finally
+        {
+            await CloseConnection(connection);
+
+            logger?.LogInformation("[MySQL]: End check exists row in table {TableName} by field {NameField}", tableName, nameField);
         }
 
         logger?.LogError("[MySQL]: Error check exists row in table {TableName} by field {NameField}", tableName, nameField);
@@ -455,18 +616,24 @@ public class MySql(string host, string database, string user, string password, I
     private static string GetStringType(Type type)
     {
         if (type == typeof(int) || type == typeof(bool))
-            return "INTEGER";
+            return "INT";
 
         if (type == typeof(float) || type == typeof(double))
             return "REAL";
 
-        return "TEXT";
+        if (type == typeof(DateTime))
+            return "DATETIME";
+
+        return "VARCHAR(512)";
     }
 
     private static object? GetDefaultValue(DbParam dbParam)
     {
         if (dbParam.TypeField == typeof(bool))
             return Convert.ToInt32(dbParam.DefaultValue != null && (bool) dbParam.DefaultValue);
+
+        if (dbParam.TypeField == typeof(string))
+            return "'" + dbParam.DefaultValue + "'";
 
         return dbParam.DefaultValue;
     }

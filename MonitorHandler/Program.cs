@@ -1,4 +1,5 @@
 using Database;
+using MonitorHandler.Controllers;
 using MonitorHandler.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,7 @@ builder.Services.AddSingleton<IDatabase>(x =>
 
     var db = new Database.MySql(
         config.Obj.MainDbHost,
+        config.Obj.MainDbPort,
         config.Obj.MainDbName,
         config.Obj.MainDbUser,
         config.Obj.MainDbPassword,
@@ -32,12 +34,23 @@ builder.Services.AddSingleton<IDatabase>(x =>
     return db;
 });
 
+builder.Services.AddSingleton<ServerManager>();
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SupportNonNullableReferenceTypes();
+});
 
 var app = builder.Build();
+
+var db = app.Services.GetRequiredService<IDatabase>();
+var config = app.Services.GetRequiredService<ManagerObject<Config>>();
+var log = app.Services.GetRequiredService<ILogger<Program>>();
+MigrationManager migrationManager = new(db, config.Obj?.VersionDb ?? 1);
+await migrationManager.Migrate();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -51,5 +64,25 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// WebSockets
+app.UseWebSockets();
+
+app.Map("/ws", async context =>
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<WebSocketController>>();
+        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        log.LogInformation("[WebSocket]: New connection from {Remote}", context.Connection.RemoteIpAddress);
+
+        var controller = new WebSocketController(logger, webSocket);
+        await Task.Run(controller.Run);
+    }
+    else
+    {
+        context.Response.StatusCode = 400;
+    }
+});
 
 app.Run();

@@ -7,6 +7,7 @@ public interface IDatabase
     IAsyncEnumerable<(IDictionary<string, object> Fields, string Id)> GetAllRecords(string tableName);
     IAsyncEnumerable<(IDictionary<string, object> Fields, string Id)> GetAllRecordsByField<T>(string tableName, string nameField, T field);
     Task<(IDictionary<string, object> Fields, string Id)> GetRecord<T>(string tableName, string nameField, T field, bool isString = true, Match match = Match.Exact);
+    Task<(IDictionary<string, object> Fields, string Id)> GetRecord(string tableName, params SearchField[] fields);
     Task<(IDictionary<string, object> Fields, string Id)> GetRecordById(string tableName, string id);
     Task<bool> Delete(string tableName, string id);
     Task<bool> DeleteByField<T>(string tableName, string nameField, T field);
