@@ -13,7 +13,7 @@ public interface IDatabase
     Task<bool> DeleteByField<T>(string tableName, string nameField, T field);
     Task<bool> Update(string tableName, string id, IDictionary<string, object> dct);
     Task<bool> UpdateByField<T>(string tableName, string nameField, T field, IDictionary<string, object> dct);
-    Task<(bool Success, string Id)> Create(string tableName, IDictionary<string, object> dct);
+    Task<(bool Success, string Id)> Create(string tableName, IDictionary<string, object?> dct);
     T? GetId<T>(object obj);
-    Task<bool> CreateTable(string nameTable, bool checkExists = true, params DbParam[] rows);
+    Task<bool> CreateTable(string nameTable, bool checkExists = true, params DbBase[] rows);
 }

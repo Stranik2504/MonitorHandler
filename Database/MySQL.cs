@@ -162,6 +162,10 @@ public class MySql(string host, int port, string database, string user, string p
 
             if (field.Match == Match.Partial)
                 request += $"%{currFieldName}%";
+            else if (field.Match == Match.Max)
+                request += $"(SELECT MAX({field.NameField}) FROM {tableName})";
+            else if (field.Match == Match.Min)
+                request += $"(SELECT MIN({field.NameField}) FROM {tableName})";
             else
                 request += currFieldName;
 
@@ -371,7 +375,7 @@ public class MySql(string host, int port, string database, string user, string p
         return rows > 0;
     }
 
-    public async Task<(bool Success, string Id)> Create(string tableName, IDictionary<string, object> dct)
+    public async Task<(bool Success, string Id)> Create(string tableName, IDictionary<string, object?> dct)
     {
         logger?.LogInformation("[MySQL]: Start create record in table {TableName}", tableName);
 
@@ -439,7 +443,7 @@ public class MySql(string host, int port, string database, string user, string p
 
     public T? GetId<T>(object obj) => obj.To<T>();
 
-    public async Task<bool> CreateTable(string nameTable, bool checkExists = true, params DbParam[] rows)
+    public async Task<bool> CreateTable(string nameTable, bool checkExists = true, params DbBase[] rows)
     {
         logger?.LogInformation("[MySQL]: Start create table {NameTable}", nameTable);
 
@@ -452,29 +456,45 @@ public class MySql(string host, int port, string database, string user, string p
 
         request += $"{nameTable} (";
 
-        for (var i = 0; i < rows.Length; i++)
-        {
-            request += $"{rows[i].Name} {GetStringType(rows[i].TypeField)}";
+        var dbParams = rows.OfType<DbParam>().ToArray();
+        var dbForeignKeys = rows.OfType<DbForeignKey>().ToArray();
 
-            if (rows[i].AutoIncrement is true)
+        for (var i = 0; i < dbParams.Length; i++)
+        {
+            request += $"{dbParams[i].Name} {GetStringType(dbParams[i].TypeField)}";
+
+            if (dbParams[i].AutoIncrement is true)
                 request += " AUTO_INCREMENT";
 
-            if (rows[i].PrimaryKey)
+            if (dbParams[i].PrimaryKey)
                 request += " PRIMARY KEY";
 
-            if (rows[i].Unique)
+            if (dbParams[i].Unique)
                 request += " UNIQUE";
 
-            if (rows[i].CanNull is false)
+            if (dbParams[i].CanNull is false)
                 request += " NOT NULL";
 
-            if (rows[i].CanNull is true)
+            if (dbParams[i].CanNull is true)
                 request += " NULL";
 
-            if (rows[i].HaveDefaultValue)
-                request += $" DEFAULT {GetDefaultValue(rows[i])}";
+            if (dbParams[i].HaveDefaultValue)
+                request += $" DEFAULT {GetDefaultValue(dbParams[i])}";
 
-            if (i + 1 < rows.Length)
+            if (i + 1 < dbParams.Length)
+                request += ",";
+        }
+
+        if (dbForeignKeys.Length > 0)
+            request += ",";
+
+        for (var i = 0; i < dbForeignKeys.Length; i++)
+        {
+            var key = dbForeignKeys[i];
+
+            request += $"FOREIGN KEY ({key.Name}) REFERENCES {key.Table} ({key.NameField})";
+
+            if (i + 1 < dbForeignKeys.Length)
                 request += ",";
         }
 

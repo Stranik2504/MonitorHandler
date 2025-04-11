@@ -41,15 +41,15 @@ public class MigrationManager(IDatabase db, int version)
             "user_server",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
-            new DbParam("server_id", typeof(int)),
-            new DbParam("user_id", typeof(int))
+            new DbForeignKey("server_id", "servers", "id"),
+            new DbForeignKey("user_id", "users", "id")
         );
 
         await _db.CreateTable(
             "metrics",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
-            new DbParam("server_id", typeof(int)),
+            new DbForeignKey("server_id", "servers", "id"),
             new DbParam("cpu", typeof(string)),
             new DbParam("ram", typeof(string)),
             new DbParam("disk", typeof(string)),
@@ -61,7 +61,7 @@ public class MigrationManager(IDatabase db, int version)
             "docker",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
-            new DbParam("server_id", typeof(int)) { CanNull = false },
+            new DbForeignKey("server_id", "servers", "id"),
             new DbParam("containers", typeof(string)),
             new DbParam("images", typeof(string))
         );
@@ -71,7 +71,8 @@ public class MigrationManager(IDatabase db, int version)
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
             new DbParam("name", typeof(string)) { CanNull = false },
-            new DbParam("size", typeof(double)) { CanNull = false }
+            new DbParam("size", typeof(double)) { CanNull = false },
+            new DbParam("hash", typeof(string)) { CanNull = false, Unique = true }
         );
 
         await _db.CreateTable(
@@ -79,16 +80,17 @@ public class MigrationManager(IDatabase db, int version)
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
             new DbParam("name", typeof(string)) { CanNull = false },
-            new DbParam("image_id", typeof(int)) { CanNull = false },
+            new DbForeignKey("image_id", "images", "id"),
             new DbParam("status", typeof(string)) { CanNull = false },
-            new DbParam("resources", typeof(string))
+            new DbParam("resources", typeof(string)),
+            new DbParam("hash", typeof(string)) { CanNull = false, Unique = true }
         );
 
         await _db.CreateTable(
             "scripts",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
-            new DbParam("server_id", typeof(int)) { CanNull = false },
+            new DbForeignKey("server_id", "servers", "id"),
             new DbParam("filename", typeof(string)) { CanNull = false },
             new DbParam("start_time", typeof(DateTime)) { CanNull = true },
             new DbParam("offset_time", typeof(DateTime)) { CanNull = true }

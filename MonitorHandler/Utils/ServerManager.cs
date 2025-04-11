@@ -136,12 +136,28 @@ public class ServerManager
         return record.Fields.GetString("token");
     }
 
-    // TODO: Realize it
     public async Task<Metric> GetLastMetric(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
 
-        return null;
+        var record = await _db.GetRecord("metrics",
+            new SearchField(serverId, "server_id", con: Connection.AND),
+            new SearchField(null, "time", con: Connection.AND, match: Match.Max)
+        );
+
+        if (string.IsNullOrWhiteSpace(record.Id))
+            throw new Exception("Invalid server");
+
+        var metric = new Metric()
+        {
+            Cpu = record.Fields.GetInt("cpu"),
+            Ram = record.Fields.GetInt("ram"),
+            Disk = record.Fields.GetInt("disk"),
+            Network = record.Fields.GetInt("network"),
+            Time = record.Fields.GetDateTime("time")
+        };
+
+        return metric;
     }
 
     public async Task<bool> SetMetric(string token, int serverId, Metric metric)
@@ -199,7 +215,8 @@ public class ServerManager
                 Name = container.Fields.GetString("name"),
                 ImageId = container.Fields.GetInt("image_id"),
                 Status = container.Fields.GetString("status"),
-                Resources = container.Fields.GetString("resources")
+                Resources = container.Fields.GetString("resources"),
+                Hash = container.Fields.GetString("hash")
             });
         }
 
@@ -236,7 +253,8 @@ public class ServerManager
             {
                 Id = image.Fields.GetInt("id"),
                 Name = image.Fields.GetString("name"),
-                Size = image.Fields.GetDouble("size")
+                Size = image.Fields.GetDouble("size"),
+                Hash = image.Fields.GetString("hash")
             });
         }
 

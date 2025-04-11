@@ -7,4 +7,5 @@ public class DockerContainer
     public int ImageId { get; set; }
     public string Status { get; set; }
     public string? Resources { get; set; }
+    public string Hash { get; set; }
 }

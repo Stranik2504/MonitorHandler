@@ -13,4 +13,6 @@ public static class Additions
 
     public static DateTime GetDateTime<T, J>(this IDictionary<T, J> dct, T val) where T : notnull => DateTime.TryParse(dct.GetString(val), out var res) ? res : DateTime.UtcNow;
 
+    public static int ToInt(this string val) => int.TryParse(val, out var res) ? res : -1;
+
 }
