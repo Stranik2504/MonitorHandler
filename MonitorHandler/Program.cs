@@ -6,8 +6,6 @@ namespace MonitorHandler
 {
     public class Program
     {
-        public static Dictionary<int, WebSocketController> WebSocketClients = new();
-
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -85,7 +83,7 @@ namespace MonitorHandler
                     var webSocket = await context.WebSockets.AcceptWebSocketAsync();
                     log.LogInformation("[WebSocket]: New connection from {Remote}", context.Connection.RemoteIpAddress);
 
-                    var controller = new WebSocketController(logger, db, webSocket);
+                    var controller = new WebSocketController(logger, db, webSocket, config.Obj ?? new Config());
                     await Task.Run(controller.Run);
                 }
                 else

@@ -10,7 +10,8 @@ public enum TypeReceivedMessage
      UpdatedDockerContainer,
      Start,
      Result,
-     Restarted
+     Restarted,
+     None
 }
 
 public enum TypeSentMessage

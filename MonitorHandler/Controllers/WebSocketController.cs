@@ -1,4 +1,5 @@
-﻿using System.Net.WebSockets;
+﻿using System.Collections.Concurrent;
+using System.Net.WebSockets;
 using System.Text;
 using Database;
 using MonitorHandler.Models;
@@ -10,7 +11,8 @@ namespace MonitorHandler.Controllers;
 public class WebSocketController (
     ILogger<WebSocketController> logger,
     IDatabase db,
-    WebSocket webSocket
+    WebSocket webSocket,
+    Config config
 )
 {
     private readonly SentMessage OkMessage = new SentMessage() { Type = TypeSentMessage.Ok, Data = string.Empty };
@@ -18,17 +20,22 @@ public class WebSocketController (
     private readonly WebSocket _webSocket = webSocket;
     private readonly ILogger<WebSocketController> _logger = logger;
     private readonly IDatabase _db = db;
+    private readonly Config _config = config;
     private readonly CancellationToken _cancellationToken = CancellationToken.None;
 
     private int _serverId;
     private bool _isRestarted = false;
+    private readonly ConcurrentQueue<SentMessage> _messages = new();
+    private readonly Mutex _mutex = new Mutex(false);
+    private readonly TaskCompletionSource<string> _resultTcs = new TaskCompletionSource<string>();
 
-    // TODO: work with this
+    private static readonly ConcurrentDictionary<int, WebSocketController> _webSocketClients = new();
+
     public async Task Run()
     {
         var buffer = new byte[1024 * 4];
 
-        // Read message
+        // Read a message
         var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
 
         while (!result.CloseStatus.HasValue)
@@ -64,7 +71,11 @@ public class WebSocketController (
                 await SetDockerImages(startMessage.DockerImages);
                 await SetDockerContainers(startMessage.DockerContainers);
 
-                Program.WebSocketClients.Add(serverId, this);
+                _webSocketClients.AddOrUpdate(
+                    serverId,
+                    this,
+                    (key, oldValue) => this
+                );
                 await SetStatus("online");
             }
 
@@ -107,6 +118,62 @@ public class WebSocketController (
                 await AddDockerContainerFull(container);
             }
 
+            if (message.Type == TypeReceivedMessage.RemovedDockerImage)
+            {
+                var imageHash = message.Data;
+
+                if (string.IsNullOrWhiteSpace(imageHash))
+                {
+                    await Send(OkMessage, result.MessageType, result.EndOfMessage);
+                    continue;
+                }
+
+                await RemoveDockerImage(imageHash);
+            }
+
+            if (message.Type == TypeReceivedMessage.RemovedDockerContainer)
+            {
+                var containerHash = message.Data;
+
+                if (string.IsNullOrWhiteSpace(containerHash))
+                {
+                    await Send(OkMessage, result.MessageType, result.EndOfMessage);
+                    continue;
+                }
+
+                await RemoveDockerContainer(containerHash);
+            }
+
+            if (message.Type == TypeReceivedMessage.UpdatedDockerContainer)
+            {
+                var container = JsonConvert.DeserializeObject<DockerContainer>(message.Data ?? "");
+
+                if (container == null)
+                {
+                    await Send(OkMessage, result.MessageType, result.EndOfMessage);
+                    continue;
+                }
+
+                await UpdateDockerContainer(container);
+            }
+
+            if (message.Type == TypeReceivedMessage.Restarted)
+            {
+                _isRestarted = true;
+            }
+
+            if (message.Type == TypeReceivedMessage.Result)
+            {
+                var resultString = message.Data;
+
+                if (string.IsNullOrWhiteSpace(resultString))
+                {
+                    await Send(OkMessage, result.MessageType, result.EndOfMessage);
+                    continue;
+                }
+
+                _resultTcs.SetResult(resultString);
+            }
             // ---------------------------------------------------------------
 
             var answer = await NeededRequest() ?? OkMessage;
@@ -118,16 +185,96 @@ public class WebSocketController (
         }
 
         // Close connection
-        // TODO: mark server as offline
         await _webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, _cancellationToken);
         await SetStatus(_isRestarted ? "restarted" : "offline");
         _logger.LogInformation("[WebSocketController]: WebSocket closed");
     }
 
-    // TODO: Check list request to send and make request to it
+    public async Task<string> WaitResult()
+    {
+        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_config.TimeWaitAnswer), _cancellationToken);
+        var completedTask = await Task.WhenAny(_resultTcs.Task, timeoutTask);
+
+        if (completedTask == timeoutTask)
+            return string.Empty;
+
+        return await _resultTcs.Task;
+    }
+
+    public void AddMessageStartContainer(int containerId)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.StartContainer,
+            Data = containerId.ToString()
+        };
+
+        _messages.Enqueue(message);
+    }
+
+    public void AddMessageStopContainer(int containerId)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.StopContainer,
+            Data = containerId.ToString()
+        };
+
+        _messages.Enqueue(message);
+    }
+
+    public void AddMessageRemoveContainer(int containerId)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.RemoveContainer,
+            Data = containerId.ToString()
+        };
+
+        _messages.Enqueue(message);
+    }
+
+    public void AddMessageRemoveImage(int imageId)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.RemoveImage,
+            Data = imageId.ToString()
+        };
+
+        _messages.Enqueue(message);
+    }
+
+    public void AddMessageRunScript(string script)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.RunScript,
+            Data = script
+        };
+
+        _messages.Enqueue(message);
+    }
+
+    public void AddMessageRunCommand(string command)
+    {
+        var message = new SentMessage()
+        {
+            Type = TypeSentMessage.RunCommand,
+            Data = command
+        };
+
+        _messages.Enqueue(message);
+    }
+
     private async Task<SentMessage?> NeededRequest()
     {
-        return null;
+        if (_messages.IsEmpty)
+            return null;
+
+        _mutex.WaitOne();
+
+        return _messages.TryDequeue(out var message) ? message : null;
     }
 
     private async Task Send(SentMessage message, WebSocketMessageType type, bool endOfMessage)
@@ -371,4 +518,92 @@ public class WebSocketController (
 
         return true;
     }
+
+    private async Task<bool> RemoveDockerImage(string hashImage)
+    {
+        var record = await _db.GetRecord("images", "hash", hashImage);
+        var imageId = record.Id;
+
+        if (string.IsNullOrWhiteSpace(imageId))
+            return false;
+
+        await _db.Delete("images", imageId);
+
+        record = await _db.GetRecord("docker", "server_id", _serverId);
+
+        if (string.IsNullOrWhiteSpace(record.Id) || !record.Fields.ContainsKey("images"))
+            return false;
+
+        var images = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("images"));
+
+        if (images == null)
+            return false;
+
+        images.Remove(imageId.ToInt());
+
+        var result = await _db.Update(
+            "docker",
+            record.Id,
+            new Dictionary<string, object>()
+            {
+                { "images", JsonConvert.SerializeObject(images) }
+            }
+        );
+
+        return result;
+    }
+
+    private async Task<bool> RemoveDockerContainer(string hashContainer)
+    {
+        var record = await _db.GetRecord("containers", "hash", hashContainer);
+        var containerId = record.Id;
+
+        if (string.IsNullOrWhiteSpace(containerId))
+            return false;
+
+        await _db.Delete("containers", containerId);
+
+        record = await _db.GetRecord("docker", "server_id", _serverId);
+
+        if (string.IsNullOrWhiteSpace(record.Id) || !record.Fields.ContainsKey("containers"))
+            return false;
+
+        var containers = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("containers"));
+
+        if (containers == null)
+            return false;
+
+        containers.Remove(containerId.ToInt());
+
+        var result = await _db.Update(
+            "docker",
+            record.Id,
+            new Dictionary<string, object>()
+            {
+                { "containers", JsonConvert.SerializeObject(containers) }
+            }
+        );
+
+        return result;
+    }
+
+    private async Task<bool> UpdateDockerContainer(DockerContainer container)
+    {
+        var dict = new Dictionary<string, object>()
+        {
+            { "status", container.Status }
+        };
+
+        if (!string.IsNullOrWhiteSpace(container.Resources))
+            dict.Add("resources", container.Resources);
+
+        return await _db.UpdateByField(
+            "containers",
+            "hash",
+            container.Hash,
+            dict
+        );
+    }
+
+    public static WebSocketController? GetController(int serverId) => _webSocketClients.GetValueOrDefault(serverId);
 }

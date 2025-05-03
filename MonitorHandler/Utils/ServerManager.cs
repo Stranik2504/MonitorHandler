@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Database;
+using MonitorHandler.Controllers;
 using MonitorHandler.Models;
 using Newtonsoft.Json;
 
@@ -7,7 +8,7 @@ namespace MonitorHandler.Utils;
 
 public class ServerManager
 {
-    private const string ScriptFolder = "scripts/";
+    private const string ScriptFolder = "scripts";
 
     private readonly IDatabase _db;
 
@@ -170,7 +171,7 @@ public class ServerManager
         if (record.Fields.GetString("token") != token)
             throw new Exception("Invalid token");
 
-        var result = await _db.Create("metrics", new Dictionary<string, object>()
+        var result = await _db.Create("metrics", new Dictionary<string, object?>()
         {
             { "server_id", serverId },
             { "cpu", metric.Cpu },
@@ -261,44 +262,60 @@ public class ServerManager
         return images;
     }
 
-    // TODO: Finish it
     public async Task<bool> StartContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
             return false;
 
-        // TODO: start container
-        return true;
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageStartContainer(containerId);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
-    // TODO: Finish it
     public async Task<bool> StopContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
             return false;
 
-        // TODO: stop container
-        return true;
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageStopContainer(containerId);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
-    // TODO: Finish it
     public async Task<bool> RemoveContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
             return false;
 
-        // TODO: remove container
-        return true;
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageRemoveContainer(containerId);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
-    // TODO: Finish it
     public async Task<bool> RemoveImage(int userId, string userToken, int serverId, int imageId)
     {
         if (!await ValidateImage(userId, userToken, serverId, imageId))
             return false;
 
-        // TODO: remove image
-        return true;
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageRemoveImage(imageId);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
     public async Task<List<Script>> GetAllScripts(int userId, string userToken, int serverId)
@@ -361,20 +378,39 @@ public class ServerManager
             OffsetTime = record.Fields.GetDateTime("offset_time")
         };
 
-        if (File.Exists(ScriptFolder + script.Text))
-            script.Text = await File.ReadAllTextAsync(ScriptFolder + script.Text);
+        if (File.Exists(Path.Combine(ScriptFolder, script.Text)))
+            script.Text = await File.ReadAllTextAsync(Path.Combine(ScriptFolder, script.Text));
 
         return script;
     }
 
-    // TODO: Finish it
     public async Task<bool> RunScript(int userId, string userToken, int serverId, int scriptId)
     {
         if (!await ValidateScript(userId, userToken, serverId, scriptId))
             return false;
 
-        // TODO: run script
-        return true;
+        var record = await _db.GetRecordById("scripts", scriptId.ToString());
+
+        if (string.IsNullOrWhiteSpace(record.Id))
+            throw new Exception("Invalid script");
+
+        var filename = record.Fields.GetString("filename");
+
+        if (string.IsNullOrWhiteSpace(filename))
+            throw new Exception("Invalid script");
+
+        if (!File.Exists(ScriptFolder + filename))
+            return false;
+
+        var script = await File.ReadAllTextAsync(Path.Combine(ScriptFolder, filename));
+
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageRunScript(script);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
     public async Task<bool> CreateScript(int userId, string userToken, int serverId, Script script)
@@ -391,11 +427,11 @@ public class ServerManager
 
         var filename = string.Empty;
 
-        while (File.Exists(ScriptFolder + filename) || string.IsNullOrWhiteSpace(filename))
+        while (File.Exists(Path.Combine(ScriptFolder, filename)) || string.IsNullOrWhiteSpace(filename))
             filename = Guid.NewGuid().ToString() + ".sh";
 
-        await File.WriteAllTextAsync(ScriptFolder + filename, script.Text);
-        script.Text = filename;
+        await File.WriteAllTextAsync(Path.Combine(ScriptFolder, filename), script.Text);
+        script.Text = Path.Combine(ScriptFolder, filename);
 
         var paramScript = new Dictionary<string, object>()
         {
@@ -434,14 +470,18 @@ public class ServerManager
         return result;
     }
 
-    // TODO: Finish it
     public async Task<bool> RunCommand(int userId, string userToken, int serverId, string command)
     {
         await Validate(userId, userToken, serverId);
 
-        // TODO: run command
-        return true;
-;    }
+        var controller = WebSocketController.GetController(serverId);
+
+        if (controller == null)
+            return false;
+
+        controller.AddMessageRunCommand(command);
+        return bool.TryParse(await controller.WaitResult(), out var result) && result;
+    }
 
     // TODO: Remove
     public async Task AddTestValues()

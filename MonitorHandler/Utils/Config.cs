@@ -8,4 +8,5 @@ public class Config
     public string MainDbUser { get; set; }
     public string MainDbPassword { get; set; }
     public int VersionDb { get; set; }
+    public int TimeWaitAnswer { get; set; } = 10;
 }
