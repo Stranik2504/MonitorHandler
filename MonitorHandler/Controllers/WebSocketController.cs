@@ -26,8 +26,7 @@ public class WebSocketController (
     private int _serverId;
     private bool _isRestarted = false;
     private readonly ConcurrentQueue<SentMessage> _messages = new();
-    private readonly Mutex _mutex = new Mutex(false);
-    private readonly TaskCompletionSource<string> _resultTcs = new TaskCompletionSource<string>();
+    private readonly TaskCompletionSource<string> _resultTcs = new();
 
     private static readonly ConcurrentDictionary<int, WebSocketController> _webSocketClients = new();
 
@@ -176,7 +175,7 @@ public class WebSocketController (
             }
             // ---------------------------------------------------------------
 
-            var answer = await NeededRequest() ?? OkMessage;
+            var answer = NeededRequest() ?? OkMessage;
 
             await Send(answer, result.MessageType, result.EndOfMessage);
 
@@ -267,12 +266,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
-    private async Task<SentMessage?> NeededRequest()
+    private SentMessage? NeededRequest()
     {
         if (_messages.IsEmpty)
             return null;
-
-        _mutex.WaitOne();
 
         return _messages.TryDequeue(out var message) ? message : null;
     }
@@ -311,13 +308,16 @@ public class WebSocketController (
         if (metric == null)
             throw new Exception("Invalid metric");
 
-        var result = await _db.Create("metrics", new Dictionary<string, object>()
+        var result = await _db.Create("metrics", new Dictionary<string, object?>()
         {
             { "server_id", _serverId },
-            { "cpu", metric.Cpu },
-            { "ram", metric.Ram },
-            { "disk", metric.Disk },
-            { "network", metric.Network },
+            { "cpus", JsonConvert.SerializeObject(metric.Cpus) },
+            { "use_ram", metric.UseRam },
+            { "total_ram", metric.TotalRam },
+            { "use_disks", JsonConvert.SerializeObject(metric.UseDisks) },
+            { "total_disks", JsonConvert.SerializeObject(metric.TotalDisks) },
+            { "network_send", metric.NetworkSend },
+            { "network_receive", metric.NetworkReceive },
             { "time", metric.Time }
         });
 
@@ -401,12 +401,27 @@ public class WebSocketController (
 
     private async Task<(bool Success, int Id)> AddDockerContainer(DockerContainer container)
     {
+        var record = await _db.GetRecord("docker", "server_id", _serverId);
+
+        if (string.IsNullOrWhiteSpace(record.Id))
+            return (false, -1);
+
+        var imageRecord = await _db.GetRecord("images", "hash", container.ImageHash);
+
+        if (string.IsNullOrWhiteSpace(imageRecord.Id))
+            return (false, -1);
+
+        var imageIds = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("images")) ?? [];
+
+        if (!imageIds.Contains(imageRecord.Id.ToInt()))
+            return (false, -1);
+
         var result = await _db.Create(
             "containers",
             new Dictionary<string, object?>()
             {
                 { "name", container.Name },
-                { "image_id", container.ImageId },
+                { "image_id", imageRecord.Id.ToInt() },
                 { "status", container.Status },
                 { "resources", container.Resources },
                 { "hash", container.Hash }
@@ -418,12 +433,28 @@ public class WebSocketController (
 
     private async Task<bool> AddDockerContainerFull(DockerContainer container)
     {
+        var record = await _db.GetRecord("docker", "server_id", _serverId);
+
+        if (string.IsNullOrWhiteSpace(record.Id))
+            return false;
+
+        var imageRecord = await _db.GetRecord("images", "hash", container.ImageHash);
+
+        if (string.IsNullOrWhiteSpace(imageRecord.Id))
+            return false;
+
+        var imageIds = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("images")) ?? [];
+
+        if (!imageIds.Contains(imageRecord.Id.ToInt()))
+            return false;
+
         var result = await _db.Create(
             "containers",
             new Dictionary<string, object?>()
             {
                 { "name", container.Name },
-                { "image_id", container.ImageId },
+                { "image_id", imageRecord.Id.ToInt() },
+                { "image_hash", container.ImageHash },
                 { "status", container.Status },
                 { "resources", container.Resources },
                 { "hash", container.Hash }
@@ -433,10 +464,7 @@ public class WebSocketController (
         if (!result.Success)
             return false;
 
-        var record = await _db.GetRecord("docker", "server_id", _serverId);
 
-        if (string.IsNullOrWhiteSpace(record.Id))
-            return false;
 
         var containers = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("containers")) ?? [];
         containers.Add(result.Id.ToInt());

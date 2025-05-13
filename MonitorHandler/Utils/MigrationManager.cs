@@ -50,10 +50,13 @@ public class MigrationManager(IDatabase db, int version)
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
             new DbForeignKey("server_id", "servers", "id"),
-            new DbParam("cpu", typeof(string)),
-            new DbParam("ram", typeof(string)),
-            new DbParam("disk", typeof(string)),
-            new DbParam("network", typeof(string)),
+            new DbParam("cpus", typeof(string)),
+            new DbParam("use_ram", typeof(int)),
+            new DbParam("total_ram", typeof(int)),
+            new DbParam("use_disks", typeof(string)),
+            new DbParam("total_disks", typeof(string)),
+            new DbParam("network_send", typeof(int)),
+            new DbParam("network_receive", typeof(int)),
             new DbParam("time", typeof(DateTime))
         );
 
@@ -81,6 +84,7 @@ public class MigrationManager(IDatabase db, int version)
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
             new DbParam("name", typeof(string)) { CanNull = false },
             new DbForeignKey("image_id", "images", "id"),
+            new DbParam("image_hash", typeof(string)) { CanNull = false },
             new DbParam("status", typeof(string)) { CanNull = false },
             new DbParam("resources", typeof(string)),
             new DbParam("hash", typeof(string)) { CanNull = false, Unique = true }

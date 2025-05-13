@@ -151,10 +151,13 @@ public class ServerManager
 
         var metric = new Metric()
         {
-            Cpu = record.Fields.GetInt("cpu"),
-            Ram = record.Fields.GetInt("ram"),
-            Disk = record.Fields.GetInt("disk"),
-            Network = record.Fields.GetInt("network"),
+            Cpus = JsonConvert.DeserializeObject<List<double>>(record.Fields.GetString("cpus")) ?? [],
+            UseRam = record.Fields.GetInt("use_ram"),
+            TotalRam = record.Fields.GetInt("total_ram"),
+            UseDisks = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("use_disks")) ?? [],
+            TotalDisks = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("total_disks")) ?? [],
+            NetworkSend = record.Fields.GetInt("network_send"),
+            NetworkReceive = record.Fields.GetInt("network_receive"),
             Time = record.Fields.GetDateTime("time")
         };
 
