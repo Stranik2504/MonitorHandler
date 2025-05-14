@@ -4,3 +4,9 @@
     build:
       context: .
       dockerfile: MonitorHandler/Dockerfile
+
+  viewtelegrambot:
+    image: viewtelegrambot
+    build:
+      context: .
+      dockerfile: ViewTelegramBot/Dockerfile
