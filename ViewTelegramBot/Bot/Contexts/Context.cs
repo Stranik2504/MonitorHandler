@@ -3,7 +3,7 @@ using ViewTelegramBot.Utils;
 using ViewTelegramBot.Bot.KeyboardUtls;
 using ViewTelegramBot.Bot.Phrase;
 
-namespace ViewTelegramBot.Bot.Context;
+namespace ViewTelegramBot.Bot.Contexts;
 
 public class Context
 {
@@ -89,11 +89,18 @@ public class Context
             CallbackState = state;
 
         // Load PhrasesManager
-        // TODO: Load lang form db
-        if (PhrasesManager != default)
-            PhrasesManager = await PhrasesLoader.LoadPhrasesManager("ru");
-        else
-            PhrasesManager = await PhrasesLoader.LoadPhrasesManager("default");
+        var result = await Local.GetUser(UserId);
+        var lang = result != null && !string.IsNullOrWhiteSpace(result.Lang) ? result.Lang : "default";
+
+        PhrasesManager = await PhrasesLoader.LoadPhrasesManager(lang);
+    }
+
+    public async Task ReloadPhraseManager()
+    {
+        var result = await Local.GetUser(UserId);
+        var lang = result != null && !string.IsNullOrWhiteSpace(result.Lang) ? result.Lang : "default";
+
+        PhrasesManager = await PhrasesLoader.LoadPhrasesManager(lang);
     }
 
     private async Task<State?> GetTextState()
@@ -162,8 +169,8 @@ public class Context
 
     public async Task<Content?> Send(Chat chat, Content content, ParseMode parseMode = ParseMode.Markdown, bool saveContent = true)
     {
-        if (parseMode == ParseMode.MarkdownV2)
-            content.SetText(content.Text.ConvertToMark2());
+        /*if (parseMode == ParseMode.MarkdownV2)
+            content.SetText(content.Text.ConvertToMark2());*/
 
         var newContent = await _bot.Send(chat, content, parseMode, CancellationToken);
 
@@ -187,8 +194,8 @@ public class Context
     {
         Content? newContent;
 
-        if (parseMode == ParseMode.MarkdownV2)
-            content.SetText(content.Text.ConvertToMark2());
+        /*if (parseMode == ParseMode.MarkdownV2)
+            content.SetText(content.Text.ConvertToMark2());*/
 
         if (Content == null || Content.Id == -1)
             newContent = await Send(content, parseMode);
@@ -229,4 +236,6 @@ public class Context
     }
 
     public string GetPing(string username, long userId) => _bot.GetPing(username, userId);
+
+    public Task<Utils.User?> GetUser() => Local.GetUser(UserId);
 }

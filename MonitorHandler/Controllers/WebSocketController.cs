@@ -67,6 +67,12 @@ public class WebSocketController (
                 _serverId = serverId;
 
                 await AddMetric(startMessage.Metric);
+
+                await DeleteAllByServerId("images");
+                await DeleteAllByServerId("containers");
+                await DeleteDockerFull();
+
+                await SetDocker();
                 await SetDockerImages(startMessage.DockerImages);
                 await SetDockerContainers(startMessage.DockerContainers);
 
@@ -338,13 +344,39 @@ public class WebSocketController (
         return result;
     }
 
+    private async Task<bool> DeleteDockerFull()
+    {
+        return await _db.DeleteByField("docker", "server_id", _serverId);
+    }
+
     private async Task<bool> DeleteAllByServerId(string tableName)
     {
-        var result = await _db.DeleteByField(
-            tableName,
-            "server_id",
-            _serverId
-        );
+        var record = await _db.GetRecord("docker", "server_id", _serverId);
+
+        if (string.IsNullOrWhiteSpace(record.Id))
+            return false;
+
+        var result = true;
+
+        if (tableName.Contains("containers"))
+        {
+            var containers = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("containers")) ?? [];
+
+            foreach (var containerId in containers)
+            {
+                result &= await _db.Delete("containers", containerId.ToString());
+            }
+        }
+
+        if (tableName.Contains("images"))
+        {
+            var images = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("images")) ?? [];
+
+            foreach (var imageId in images)
+            {
+                result &= await _db.Delete("images", imageId.ToString());
+            }
+        }
 
         return result;
     }
@@ -422,6 +454,7 @@ public class WebSocketController (
             {
                 { "name", container.Name },
                 { "image_id", imageRecord.Id.ToInt() },
+                { "image_hash", container.ImageHash },
                 { "status", container.Status },
                 { "resources", container.Resources },
                 { "hash", container.Hash }
@@ -464,8 +497,6 @@ public class WebSocketController (
         if (!result.Success)
             return false;
 
-
-
         var containers = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("containers")) ?? [];
         containers.Add(result.Id.ToInt());
 
@@ -481,12 +512,24 @@ public class WebSocketController (
         return res;
     }
 
+    private async Task<bool> SetDocker()
+    {
+        var res = await _db.Create(
+            "docker",
+            new Dictionary<string, object?>()
+            {
+                { "server_id", _serverId },
+                { "images", JsonConvert.SerializeObject(new List<int>()) },
+                { "containers", JsonConvert.SerializeObject(new List<int>()) }
+            }
+        );
+
+        return res.Success;
+    }
+
     private async Task<bool> SetDockerImages(List<DockerImage>? images)
     {
         if (images == null)
-            return false;
-
-        if (!await DeleteAllByServerId("images"))
             return false;
 
         var lst = new List<int>();
@@ -501,7 +544,7 @@ public class WebSocketController (
             lst.Add(res.Id);
         }
 
-        await _db.UpdateByField(
+        var result = await _db.UpdateByField(
             "docker",
             "server_id",
             _serverId,
@@ -511,15 +554,12 @@ public class WebSocketController (
             }
         );
 
-        return true;
+        return result;
     }
 
     private async Task<bool> SetDockerContainers(List<DockerContainer>? containers)
     {
         if (containers == null)
-            return false;
-
-        if (!await DeleteAllByServerId("containers"))
             return false;
 
         var lst = new List<int>();
@@ -534,7 +574,7 @@ public class WebSocketController (
             lst.Add(res.Id);
         }
 
-        await _db.UpdateByField(
+        var result = await _db.UpdateByField(
             "docker",
             "server_id",
             _serverId,
@@ -544,7 +584,7 @@ public class WebSocketController (
             }
         );
 
-        return true;
+        return result;
     }
 
     private async Task<bool> RemoveDockerImage(string hashImage)

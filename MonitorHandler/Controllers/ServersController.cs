@@ -1,4 +1,5 @@
-﻿using Database;
+﻿using System.Text.Json.Serialization;
+using Database;
 using Microsoft.AspNetCore.Mvc;
 using MonitorHandler.Models;
 using MonitorHandler.Utils;
@@ -38,20 +39,20 @@ public class ServersController(
     }
 
     [HttpPost]
-    public async Task<ActionResult> CreateServer(
+    public async Task<ActionResult<string>> CreateServer(
         [FromHeader] int userId,
         [FromHeader] string userToken,
-        [FromQuery] string name,
-        [FromQuery] string ip
+        [FromBody] ServerInfo serverInfo
     )
     {
         _logger.LogInformation("[ServerController]: CreateServer start");
 
-        bool result;
+        bool success;
+        string token;
 
         try
         {
-            result = await _manager.CreateServer(userId, userToken, name, ip);
+            (success, token) = await _manager.CreateServer(userId, userToken, serverInfo.Name, serverInfo.Ip);
         }
         catch (Exception ex)
         {
@@ -59,7 +60,7 @@ public class ServersController(
         }
 
         _logger.LogInformation("[ServerController]: CreateServer end and return result");
-        return result ? Ok() : Problem();
+        return success ? Ok(token) : Problem();
     }
 
     [HttpPost("add")]
@@ -157,11 +158,13 @@ public class ServersController(
         _logger.LogInformation("[ServerController]: GetToken end and return result");
         return token;
     }
+}
 
-    // TODO: Remove
-    [HttpPost("defaults")]
-    public async Task AddTestValues()
-    {
-        await _manager.AddTestValues();
-    }
+public class ServerInfo
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    [JsonPropertyName("ip")]
+    public string Ip { get; set; }
 }

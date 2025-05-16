@@ -24,6 +24,32 @@ public class ServerManager
         _db.End();
     }
 
+    public async Task<User> AddUser(string username)
+    {
+        var user = new User()
+        {
+            Id = 0,
+            Username = username,
+            Token = GenToken()
+        };
+
+        var result = await _db.Create("users", new Dictionary<string, object?>
+        {
+            { "username", user.Username },
+            { "token", user.Token }
+        });
+
+        if (!result.Success)
+            throw new Exception("Failed to create user");
+
+        user.Id = result.Id.ToInt();
+
+        if (user.Id == 0)
+            throw new Exception("Failed to create user");
+
+        return user;
+    }
+
     public async Task<List<Server>> GetAllServers(int userId, string token)
     {
         await ValidateUser(userId, token);
@@ -50,13 +76,13 @@ public class ServerManager
         return servers;
     }
 
-    public async Task<bool> CreateServer(int userId, string userToken, string name, string ip)
+    public async Task<(bool Success, string Token)> CreateServer(int userId, string userToken, string name, string ip)
     {
         await ValidateUser(userId, userToken);
 
         var token = GenToken();
 
-        var result = await _db.Create("servers", new Dictionary<string, object>()
+        var result = await _db.Create("servers", new Dictionary<string, object?>()
         {
             { "ip", ip },
             { "name", name },
@@ -67,13 +93,13 @@ public class ServerManager
         if (!result.Success)
             throw new Exception("Failed to create server");
 
-        result = await _db.Create("user_server", new Dictionary<string, object>()
+        result = await _db.Create("user_server", new Dictionary<string, object?>()
         {
             { "server_id", result.Id },
             { "user_id", userId },
         });
 
-        return result.Success;
+        return (result.Success, token);
     }
 
     public async Task<bool> AddServer(int userId, string userToken, string ip, string token)
@@ -143,7 +169,7 @@ public class ServerManager
 
         var record = await _db.GetRecord("metrics",
             new SearchField(serverId, "server_id", con: Connection.AND),
-            new SearchField(null, "time", con: Connection.AND, match: Match.Max)
+            new SearchField("123", "time", con: Connection.AND, match: Match.Max)
         );
 
         if (string.IsNullOrWhiteSpace(record.Id))
@@ -152,12 +178,12 @@ public class ServerManager
         var metric = new Metric()
         {
             Cpus = JsonConvert.DeserializeObject<List<double>>(record.Fields.GetString("cpus")) ?? [],
-            UseRam = record.Fields.GetInt("use_ram"),
-            TotalRam = record.Fields.GetInt("total_ram"),
-            UseDisks = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("use_disks")) ?? [],
-            TotalDisks = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("total_disks")) ?? [],
-            NetworkSend = record.Fields.GetInt("network_send"),
-            NetworkReceive = record.Fields.GetInt("network_receive"),
+            UseRam = record.Fields.GetUlong("use_ram"),
+            TotalRam = record.Fields.GetUlong("total_ram"),
+            UseDisks = JsonConvert.DeserializeObject<List<ulong>>(record.Fields.GetString("use_disks")) ?? [],
+            TotalDisks = JsonConvert.DeserializeObject<List<ulong>>(record.Fields.GetString("total_disks")) ?? [],
+            NetworkSend = record.Fields.GetUlong("network_send"),
+            NetworkReceive = record.Fields.GetUlong("network_receive"),
             Time = record.Fields.GetDateTime("time")
         };
 
@@ -177,10 +203,13 @@ public class ServerManager
         var result = await _db.Create("metrics", new Dictionary<string, object?>()
         {
             { "server_id", serverId },
-            { "cpu", metric.Cpu },
-            { "ram", metric.Ram },
-            { "disk", metric.Disk },
-            { "network", metric.Network },
+            { "cpus", JsonConvert.SerializeObject(metric.Cpus) },
+            { "use_ram", metric.UseRam },
+            { "total_ram", metric.TotalRam },
+            { "use_disks", JsonConvert.SerializeObject(metric.UseDisks) },
+            { "total_disks", JsonConvert.SerializeObject(metric.TotalDisks) },
+            { "network_send", metric.NetworkSend },
+            { "network_receive", metric.NetworkReceive },
             { "time", DateTime.UtcNow }
         });
 
@@ -486,65 +515,34 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
-    // TODO: Remove
-    public async Task AddTestValues()
+    public async Task<bool> ClearMetrics()
     {
-        await _db.Create("users", new Dictionary<string, object>()
-        {
-            { "username", "admin" },
-            { "token", "admin" },
-        });
+        var listClear = new List<int>();
 
-        await _db.Create("users", new Dictionary<string, object>()
+        await foreach (var metric in _db.GetAllRecords("metrics"))
         {
-            { "username", "test" },
-            { "token", "test" },
-        });
+            if (string.IsNullOrWhiteSpace(metric.Id)) continue;
 
-        await _db.Create("servers", new Dictionary<string, object>()
-        {
-            { "ip", "127.0.0.1" },
-            { "name", "hahaha" },
-            { "status", "online" },
-            { "token", "admin" },
-        });
+            if (string.IsNullOrWhiteSpace(metric.Fields.GetString("time"))) continue;
 
-        await _db.Create("servers", new Dictionary<string, object>()
-        {
-            { "ip", "127.0.0.1" },
-            { "name", "2" },
-            { "status", "online" },
-            { "token", "adminss" },
-        });
+            if (DateTime.TryParse(metric.Fields.GetString("time"), out var time))
+            {
+                if (time > DateTime.UtcNow.AddDays(-1))
+                    continue;
+            }
 
-        await _db.Create("servers", new Dictionary<string, object>()
-        {
-            { "ip", "192.0.0.1" },
-            { "name", "3" },
-            { "status", "offline" },
-            { "token", "admin12323" },
-        });
+            listClear.Add(metric.Fields.GetInt("id"));
+        }
 
-        await _db.Create("user_server", new Dictionary<string, object>()
-        {
-            { "server_id", 1 },
-            { "user_id", 1 },
-        });
+        var result = true;
 
-        await _db.Create("user_server", new Dictionary<string, object>()
-        {
-            { "server_id", 2 },
-            { "user_id", 1 },
-        });
+        foreach (var item in listClear)
+            result &= await _db.Delete("metrics", item.ToString());
 
-        await _db.Create("user_server", new Dictionary<string, object>()
-        {
-            { "server_id", 3 },
-            { "user_id", 2 },
-        });
+        return result;
     }
 
-    private string GenToken()
+    private static string GenToken()
     {
         const int tokenLength = 64;
         const string chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";

@@ -41,6 +41,7 @@ namespace MonitorHandler
             });
 
             builder.Services.AddSingleton<ServerManager>();
+            builder.Services.AddHostedService<MetricsCleanupService>();
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -92,7 +93,7 @@ namespace MonitorHandler
                 }
             });
 
-            app.Run();
+            await app.RunAsync();
         }
     }
 }

@@ -1,0 +1,17 @@
+﻿{
+    "in_progress": "В разработке",
+    "command_not_found": "Команда не была найдена",
+    "error_to_get_access": "Вам недостаточно прав для использования этой команды",
+    "get_access_button": "Запросить доступ",
+    "text_menu": "Main menu",
+    "text_settings": "Settings menu:",
+    "button_servers": "Servers",
+    "button_settings": "Settings",
+    "button_token": "Get my token",
+    "button_change_lang": "Change lang",
+    "button_back": "Назад",
+    "text_token": "Ваш токен: `{0}`",
+    "user_not_found": "Такой пользователь не найден",
+    "text_lang_changed": "Вы изменили язык на: {0}",
+    "text_change_lang": "Выберете язык:"
+}

@@ -641,6 +641,9 @@ public class MySql(string host, int port, string database, string user, string p
         if (type == typeof(float) || type == typeof(double))
             return "REAL";
 
+        if (type == typeof(ulong) || type == typeof(long))
+            return "BIGINT";
+
         if (type == typeof(DateTime))
             return "DATETIME";
 

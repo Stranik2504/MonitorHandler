@@ -1,8 +1,0 @@
-{
-    "MainDbHost": "127.0.0.1",
-    "MainDbPort": 3306,
-    "MainDbName": "database",
-    "MainDbUser": "root",
-    "MainDbPassword": "UfMMXrpXon",
-    "VersionDb": 0
-}

@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace ViewTelegramBot.Bot.Context;
+namespace ViewTelegramBot.Bot.Contexts;
 
 public class TextDocument : Document
 {

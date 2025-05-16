@@ -1,4 +1,4 @@
-﻿namespace MonitorHandler.Models;
+﻿namespace ViewTelegramBot.Utils.Models;
 
 public class Metric
 {

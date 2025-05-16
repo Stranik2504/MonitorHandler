@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 
 # My
 files/
+**/files/
+MonitorHandler/files
+ViewTelegramBot/files

@@ -25,7 +25,7 @@ public class PhrasesLoader
         if (_phrasesManagers.TryGetValue(language, out var phrasesManager))
             return phrasesManager;
 
-        if (_manager?.Obj == default)
+        if (_manager?.Obj == null)
             return await GetValueOrCreate("null", PhrasesFolder + "null.inf");
 
         if (_manager.Obj.TryGetValue(language, out var value))
@@ -36,6 +36,15 @@ public class PhrasesLoader
 
         return await GetValueOrCreate("null", PhrasesFolder + "null.inf");
     }
+
+    public static List<string> GetLangs() => _manager?.Obj?.Keys.Where(x => x != "default" && x != "null").ToList() ?? [];
+
+    public static string GetLangName(string lang) => lang switch
+    {
+        "en" => "English",
+        "ru" => "Русский",
+        _ => "Unknown"
+    };
 
     private static async Task<PhrasesManager> GetValueOrCreate(string language, string filename)
     {

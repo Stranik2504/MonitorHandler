@@ -1,4 +1,4 @@
-﻿using ViewTelegramBot.Bot.Context;
+﻿using ViewTelegramBot.Bot.Contexts;
 using ViewTelegramBot.Utils;
 
 namespace ViewTelegramBot.Bot;

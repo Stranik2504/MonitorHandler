@@ -41,6 +41,8 @@ public class MigrationManager(IDatabase db, int version)
             "user_server",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
+            new DbParam("server_id", typeof(int)),
+            new DbParam("user_id", typeof(int)),
             new DbForeignKey("server_id", "servers", "id"),
             new DbForeignKey("user_id", "users", "id")
         );
@@ -49,14 +51,15 @@ public class MigrationManager(IDatabase db, int version)
             "metrics",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
+            new DbParam("server_id", typeof(int)),
             new DbForeignKey("server_id", "servers", "id"),
             new DbParam("cpus", typeof(string)),
-            new DbParam("use_ram", typeof(int)),
-            new DbParam("total_ram", typeof(int)),
+            new DbParam("use_ram", typeof(ulong)),
+            new DbParam("total_ram", typeof(ulong)),
             new DbParam("use_disks", typeof(string)),
             new DbParam("total_disks", typeof(string)),
-            new DbParam("network_send", typeof(int)),
-            new DbParam("network_receive", typeof(int)),
+            new DbParam("network_send", typeof(ulong)),
+            new DbParam("network_receive", typeof(ulong)),
             new DbParam("time", typeof(DateTime))
         );
 
@@ -64,6 +67,7 @@ public class MigrationManager(IDatabase db, int version)
             "docker",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
+            new DbParam("server_id", typeof(int)),
             new DbForeignKey("server_id", "servers", "id"),
             new DbParam("containers", typeof(string)),
             new DbParam("images", typeof(string))
@@ -83,6 +87,7 @@ public class MigrationManager(IDatabase db, int version)
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
             new DbParam("name", typeof(string)) { CanNull = false },
+            new DbParam("image_id", typeof(int)),
             new DbForeignKey("image_id", "images", "id"),
             new DbParam("image_hash", typeof(string)) { CanNull = false },
             new DbParam("status", typeof(string)) { CanNull = false },
@@ -94,6 +99,7 @@ public class MigrationManager(IDatabase db, int version)
             "scripts",
             true,
             new DbParam("id", typeof(int)) { PrimaryKey = true, Unique = true, AutoIncrement = true },
+            new DbParam("server_id", typeof(int)),
             new DbForeignKey("server_id", "servers", "id"),
             new DbParam("filename", typeof(string)) { CanNull = false },
             new DbParam("start_time", typeof(DateTime)) { CanNull = true },

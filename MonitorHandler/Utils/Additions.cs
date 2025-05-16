@@ -9,6 +9,8 @@ public static class Additions
 
     public static int GetInt<T, J>(this IDictionary<T, J> dct, T val) where T : notnull => int.TryParse(dct.GetString(val), out var res) ? res : -1;
 
+    public static ulong GetUlong<T, J>(this IDictionary<T, J> dct, T val) where T : notnull => ulong.TryParse(dct.GetString(val), out var res) ? res : 0;
+
     public static double GetDouble<T, J>(this IDictionary<T, J> dct, T val) where T : notnull => double.TryParse(dct.GetString(val), out var res) ? res : -1.0d;
 
     public static DateTime GetDateTime<T, J>(this IDictionary<T, J> dct, T val) where T : notnull => DateTime.TryParse(dct.GetString(val), out var res) ? res : DateTime.UtcNow;
