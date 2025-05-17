@@ -6,11 +6,18 @@ using ViewTelegramBot.Utils;
 
 namespace ViewTelegramBot.Commands;
 
+/// <summary>
+/// Команда для управления настройками пользователя через Telegram-бота.
+/// </summary>
 [Names("settings")]
 [Visibility(Visibility.Visible)]
 [TypeEvent(TypeEvents.Text, TypeEvents.Callback)]
 public class SettingsCommand : Command
 {
+    /// <summary>
+    /// Отображает главное меню настроек.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("default")]
     public async Task DefaultState(Context ctx)
     {
@@ -26,6 +33,10 @@ public class SettingsCommand : Command
         await ctx.Answer();
     }
 
+    /// <summary>
+    /// Показывает токен пользователя.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("get_token")]
     public async Task GetToken(Context ctx)
     {
@@ -48,6 +59,10 @@ public class SettingsCommand : Command
         await ctx.Answer();
     }
 
+    /// <summary>
+    /// Отображает меню смены языка.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("change_lang")]
     public async Task ChangeLang(Context ctx)
     {
@@ -76,6 +91,10 @@ public class SettingsCommand : Command
         await ctx.Answer();
     }
 
+    /// <summary>
+    /// Устанавливает новый язык для пользователя.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("set_lang")]
     public async Task SetNewLang(Context ctx)
     {

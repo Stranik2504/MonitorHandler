@@ -6,6 +6,9 @@ using MonitorHandler.Utils;
 
 namespace MonitorHandler.Controllers;
 
+/// <summary>
+/// Контроллер для управления серверами пользователя.
+/// </summary>
 [ApiController]
 [Route("/api/v1/servers")]
 public class ServersController(
@@ -13,9 +16,22 @@ public class ServersController(
     ServerManager manager
 ) : Controller
 {
+    /// <summary>
+    /// Логгер для вывода информации и ошибок контроллера Servers.
+    /// </summary>
     private readonly ILogger<ServersController> _logger = logger;
+
+    /// <summary>
+    /// Менеджер серверов для выполнения операций с серверами.
+    /// </summary>
     private readonly ServerManager _manager = manager;
 
+    /// <summary>
+    /// Получает список всех серверов пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <returns>Список серверов</returns>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Server>>> GetServers(
         [FromHeader] int userId,
@@ -38,6 +54,13 @@ public class ServersController(
         return servers;
     }
 
+    /// <summary>
+    /// Создаёт новый сервер для пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverInfo">Информация о сервере</param>
+    /// <returns>Токен сервера</returns>
     [HttpPost]
     public async Task<ActionResult<string>> CreateServer(
         [FromHeader] int userId,
@@ -63,6 +86,14 @@ public class ServersController(
         return success ? Ok(token) : Problem();
     }
 
+    /// <summary>
+    /// Добавляет существующий сервер по IP и токену.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="ip">IP сервера</param>
+    /// <param name="token">Токен сервера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost("add")]
     public async Task<ActionResult> AddServer(
         [FromHeader] int userId,
@@ -88,6 +119,14 @@ public class ServersController(
         return result ? Ok() : Problem();
     }
 
+    /// <summary>
+    /// Обновляет информацию о сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="server">Обновлённый объект сервера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPut]
     public async Task<ActionResult> UpdateServer(
         [FromHeader] int userId,
@@ -113,6 +152,13 @@ public class ServersController(
         return result ? Ok() : Problem();
     }
 
+    /// <summary>
+    /// Удаляет сервер пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpDelete]
     public async Task<ActionResult> DeleteServer(
         [FromHeader] int userId,
@@ -136,6 +182,13 @@ public class ServersController(
         return result ? Ok() : Problem();
     }
 
+    /// <summary>
+    /// Получает токен сервера по его идентификатору.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="id">ID сервера</param>
+    /// <returns>Токен сервера</returns>
     [HttpGet("token")]
     public async Task<ActionResult<string>> GetToken(
         [FromHeader] int userId,
@@ -160,11 +213,20 @@ public class ServersController(
     }
 }
 
+/// <summary>
+/// Класс для передачи информации о сервере при создании.
+/// </summary>
 public class ServerInfo
 {
+    /// <summary>
+    /// Имя сервера.
+    /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; }
 
+    /// <summary>
+    /// IP-адрес сервера.
+    /// </summary>
     [JsonPropertyName("ip")]
     public string Ip { get; set; }
 }

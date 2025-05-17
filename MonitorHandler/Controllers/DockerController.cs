@@ -4,6 +4,9 @@ using MonitorHandler.Utils;
 
 namespace MonitorHandler.Controllers;
 
+/// <summary>
+/// Контроллер для управления Docker-контейнерами и образами на сервере.
+/// </summary>
 [ApiController]
 [Route("/api/v1/server/docker")]
 public class DockerController(
@@ -11,9 +14,23 @@ public class DockerController(
     ServerManager manager
 ) : Controller
 {
+    /// <summary>
+    /// Логгер для вывода информации и ошибок контроллера Docker.
+    /// </summary>
     private readonly ILogger<DockerController> _logger = logger;
+
+    /// <summary>
+    /// Менеджер серверов для выполнения операций с Docker.
+    /// </summary>
     private readonly ServerManager _manager = manager;
 
+    /// <summary>
+    /// Получает список всех Docker-контейнеров на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список контейнеров Docker</returns>
     [HttpGet("containers")]
     public async Task<ActionResult<List<DockerContainer>>> GetContainers(
         [FromHeader] int userId,
@@ -38,6 +55,13 @@ public class DockerController(
         return containers;
     }
 
+    /// <summary>
+    /// Получает список всех Docker-образов на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список Docker-образов</returns>
     [HttpGet("images")]
     public async Task<ActionResult<List<DockerImage>>> GetImages(
         [FromHeader]  int userId,
@@ -62,6 +86,14 @@ public class DockerController(
         return images;
     }
 
+    /// <summary>
+    /// Запускает указанный Docker-контейнер на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost("containers/start")]
     public async Task<ActionResult> StartContainer(
         [FromHeader]  int userId,
@@ -87,6 +119,14 @@ public class DockerController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Останавливает указанный Docker-контейнер на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost("containers/stop")]
     public async Task<ActionResult> StopContainer(
         [FromHeader]  int userId,
@@ -112,6 +152,14 @@ public class DockerController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Удаляет указанный Docker-контейнер с сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpDelete("containers/remove")]
     public async Task<ActionResult> RemoveContainer(
         [FromHeader]  int userId,
@@ -137,6 +185,14 @@ public class DockerController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Удаляет указанный Docker-образ с сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="imageId">ID образа</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpDelete("image/remove")]
     public async Task<ActionResult> RemoveImage(
         [FromHeader]  int userId,

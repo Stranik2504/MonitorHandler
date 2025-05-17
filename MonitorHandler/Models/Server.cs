@@ -1,14 +1,30 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
 
 namespace MonitorHandler.Models;
 
+/// <summary>
+/// Модель сервера, принадлежащего пользователю.
+/// </summary>
 public class Server
 {
+    /// <summary>
+    /// Уникальный идентификатор сервера.
+    /// </summary>
     [Key]
     public int Id { get; set; }
+
+    /// <summary>
+    /// Имя сервера.
+    /// </summary>
     public string Name { get; set; }
+
+    /// <summary>
+    /// IP-адрес сервера.
+    /// </summary>
     public string Ip { get; set; }
+
+    /// <summary>
+    /// Текущий статус сервера.
+    /// </summary>
     public string Status { get; set; }
 }

@@ -6,12 +6,25 @@ using Newtonsoft.Json;
 
 namespace MonitorHandler.Utils;
 
+/// <summary>
+/// Класс для управления пользователями, серверами, метриками, docker-объектами и скриптами.
+/// </summary>
 public class ServerManager
 {
+    /// <summary>
+    /// Папка для хранения скриптов.
+    /// </summary>
     private const string ScriptFolder = "scripts";
 
+    /// <summary>
+    /// Интерфейс работы с базой данных.
+    /// </summary>
     private readonly IDatabase _db;
 
+    /// <summary>
+    /// Конструктор ServerManager.
+    /// </summary>
+    /// <param name="db">Интерфейс базы данных</param>
     public ServerManager(IDatabase db)
     {
         _db = db;
@@ -19,11 +32,19 @@ public class ServerManager
         _db.Start();
     }
 
+    /// <summary>
+    /// Деструктор ServerManager.
+    /// </summary>
     ~ServerManager()
     {
         _db.End();
     }
 
+    /// <summary>
+    /// Добавляет нового пользователя.
+    /// </summary>
+    /// <param name="username">Имя пользователя</param>
+    /// <returns>Созданный пользователь</returns>
     public async Task<User> AddUser(string username)
     {
         var user = new User()
@@ -50,6 +71,12 @@ public class ServerManager
         return user;
     }
 
+    /// <summary>
+    /// Получает все сервера пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен пользователя</param>
+    /// <returns>Список серверов</returns>
     public async Task<List<Server>> GetAllServers(int userId, string token)
     {
         await ValidateUser(userId, token);
@@ -76,6 +103,14 @@ public class ServerManager
         return servers;
     }
 
+    /// <summary>
+    /// Создаёт новый сервер для пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="name">Имя сервера</param>
+    /// <param name="ip">IP сервера</param>
+    /// <returns>Успех и токен сервера</returns>
     public async Task<(bool Success, string Token)> CreateServer(int userId, string userToken, string name, string ip)
     {
         await ValidateUser(userId, userToken);
@@ -102,6 +137,14 @@ public class ServerManager
         return (result.Success, token);
     }
 
+    /// <summary>
+    /// Добавляет существующий сервер пользователю.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="ip">IP сервера</param>
+    /// <param name="token">Токен сервера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> AddServer(int userId, string userToken, string ip, string token)
     {
         await ValidateUser(userId, userToken);
@@ -123,6 +166,14 @@ public class ServerManager
         return result.Success;
     }
 
+    /// <summary>
+    /// Обновляет информацию о сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="server">Объект сервера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> UpdateServer(int userId, string userToken, int serverId, Server server)
     {
         await Validate(userId, userToken, serverId);
@@ -142,6 +193,13 @@ public class ServerManager
         return result;
     }
 
+    /// <summary>
+    /// Удаляет сервер пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> DeleteServer(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -151,6 +209,13 @@ public class ServerManager
         return result;
     }
 
+    /// <summary>
+    /// Получает токен сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Токен сервера</returns>
     public async Task<string> GetToken(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -163,6 +228,13 @@ public class ServerManager
         return record.Fields.GetString("token");
     }
 
+    /// <summary>
+    /// Получает последние метрики сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Последние метрики</returns>
     public async Task<Metric> GetLastMetric(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -190,6 +262,13 @@ public class ServerManager
         return metric;
     }
 
+    /// <summary>
+    /// Устанавливает метрики сервера.
+    /// </summary>
+    /// <param name="token">Токен сервера</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="metric">Объект метрик</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> SetMetric(string token, int serverId, Metric metric)
     {
         var record = await _db.GetRecordById("servers", serverId.ToString());
@@ -216,6 +295,13 @@ public class ServerManager
         return result.Success;
     }
 
+    /// <summary>
+    /// Получает все docker-контейнеры сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список контейнеров</returns>
     public async Task<List<DockerContainer>> GetAllContainers(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -256,6 +342,13 @@ public class ServerManager
         return containers;
     }
 
+    /// <summary>
+    /// Получает все docker-образы сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список образов</returns>
     public async Task<List<DockerImage>> GetAllImages(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -294,6 +387,14 @@ public class ServerManager
         return images;
     }
 
+    /// <summary>
+    /// Запускает docker-контейнер.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> StartContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
@@ -308,6 +409,14 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Останавливает docker-контейнер.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> StopContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
@@ -322,6 +431,14 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Удаляет docker-контейнер.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> RemoveContainer(int userId, string userToken, int serverId, int containerId)
     {
         if (!await ValidateContainer(userId, userToken, serverId, containerId))
@@ -336,6 +453,14 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Удаляет docker-образ.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="imageId">ID образа</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> RemoveImage(int userId, string userToken, int serverId, int imageId)
     {
         if (!await ValidateImage(userId, userToken, serverId, imageId))
@@ -350,6 +475,13 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Получает все скрипты сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список скриптов</returns>
     public async Task<List<Script>> GetAllScripts(int userId, string userToken, int serverId)
     {
         await Validate(userId, userToken, serverId);
@@ -387,6 +519,14 @@ public class ServerManager
         return scripts;
     }
 
+    /// <summary>
+    /// Получает скрипт по идентификатору.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Скрипт</returns>
     public async Task<Script> GetScript(int userId, string userToken, int serverId, int scriptId)
     {
         await Validate(userId, userToken, serverId);
@@ -416,6 +556,14 @@ public class ServerManager
         return script;
     }
 
+    /// <summary>
+    /// Запускает скрипт на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> RunScript(int userId, string userToken, int serverId, int scriptId)
     {
         if (!await ValidateScript(userId, userToken, serverId, scriptId))
@@ -445,6 +593,14 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Создаёт новый скрипт на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="script">Объект скрипта</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> CreateScript(int userId, string userToken, int serverId, Script script)
     {
         await Validate(userId, userToken, serverId);
@@ -482,6 +638,14 @@ public class ServerManager
         return result.Success;
     }
 
+    /// <summary>
+    /// Удаляет скрипт с сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> DeleteScript(int userId, string userToken, int serverId, int scriptId)
     {
         if (!await ValidateScript(userId, userToken, serverId, scriptId))
@@ -502,6 +666,14 @@ public class ServerManager
         return result;
     }
 
+    /// <summary>
+    /// Выполняет команду на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="command">Команда</param>
+    /// <returns>Успех операции</returns>
     public async Task<bool> RunCommand(int userId, string userToken, int serverId, string command)
     {
         await Validate(userId, userToken, serverId);
@@ -515,6 +687,10 @@ public class ServerManager
         return bool.TryParse(await controller.WaitResult(), out var result) && result;
     }
 
+    /// <summary>
+    /// Очищает устаревшие метрики (старше 1 дня).
+    /// </summary>
+    /// <returns>Успех операции</returns>
     public async Task<bool> ClearMetrics()
     {
         var listClear = new List<int>();
@@ -542,6 +718,10 @@ public class ServerManager
         return result;
     }
 
+    /// <summary>
+    /// Генерирует случайный токен.
+    /// </summary>
+    /// <returns>Токен</returns>
     private static string GenToken()
     {
         const int tokenLength = 64;
@@ -560,6 +740,11 @@ public class ServerManager
         return new string(tokenChars);
     }
 
+    /// <summary>
+    /// Проверяет пользователя по id и токену.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
     private async Task ValidateUser(int userId, string userToken)
     {
         var record = await _db.GetRecordById("users", userId.ToString());
@@ -571,6 +756,12 @@ public class ServerManager
             throw new Exception("Invalid token or userId");
     }
 
+    /// <summary>
+    /// Проверяет пользователя и наличие сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
     private async Task Validate(int userId, string userToken, int serverId)
     {
         await ValidateUser(userId, userToken);
@@ -585,6 +776,14 @@ public class ServerManager
             throw new Exception("User doesn't have this server");
     }
 
+    /// <summary>
+    /// Проверяет, что контейнер принадлежит серверу пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="containerId">ID контейнера</param>
+    /// <returns>True, если контейнер принадлежит серверу</returns>
     private async Task<bool> ValidateContainer(int userId, string userToken, int serverId, int containerId)
     {
         await Validate(userId, userToken, serverId);
@@ -608,6 +807,14 @@ public class ServerManager
         return true;
     }
 
+    /// <summary>
+    /// Проверяет, что образ принадлежит серверу пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="imageId">ID образа</param>
+    /// <returns>True, если образ принадлежит серверу</returns>
     private async Task<bool> ValidateImage(int userId, string userToken, int serverId, int imageId)
     {
         await Validate(userId, userToken, serverId);
@@ -631,6 +838,14 @@ public class ServerManager
         return true;
     }
 
+    /// <summary>
+    /// Проверяет, что скрипт принадлежит серверу пользователя.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="userToken">Токен пользователя</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>True, если скрипт принадлежит серверу</returns>
     private async Task<bool> ValidateScript(int userId, string userToken, int serverId, int scriptId)
     {
         await Validate(userId, userToken, serverId);

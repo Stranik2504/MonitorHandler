@@ -7,11 +7,18 @@ using ViewTelegramBot.Utils.Models;
 
 namespace ViewTelegramBot.Commands;
 
+/// <summary>
+/// Команда запуска и регистрации пользователя в Telegram-боте.
+/// </summary>
 [Names("start")]
 [Visibility(Visibility.Hidden)]
 [TypeEvent(TypeEvents.Text, TypeEvents.Callback)]
 public class StartCommand : Command
 {
+    /// <summary>
+    /// Обрабатывает стартовое состояние пользователя.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [DefaultState]
     public async Task Start(Context ctx)
     {
@@ -52,12 +59,21 @@ public class StartCommand : Command
         await StartMenu(ctx, TypeEvents.Text);
     }
 
+    /// <summary>
+    /// Обрабатывает стартовый callback.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("default")]
     public async Task StartCallback(Context ctx)
     {
         await StartMenu(ctx, TypeEvents.Callback);
     }
 
+    /// <summary>
+    /// Отображает главное меню Telegram-бота.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
+    /// <param name="typeEvent">Тип события</param>
     public static async Task StartMenu(Context ctx, TypeEvents typeEvent)
     {
         var text = ctx.PhrasesManager["text_menu"];

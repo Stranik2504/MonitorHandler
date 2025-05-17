@@ -2,8 +2,14 @@
 
 namespace ViewTelegramBot.Utils;
 
+/// <summary>
+/// Статический класс с методами-расширениями для работы с локальной базой данных Telegram-бота.
+/// </summary>
 public static class ModifyDatabase
 {
+    /// <summary>
+    /// Словарь соответствия Place и названия таблицы.
+    /// </summary>
     private static readonly Dictionary<Place, string> Tabels = new()
     {
         { Place.State, "states" },
@@ -11,8 +17,21 @@ public static class ModifyDatabase
         { Place.User, "user" },
     };
 
+    /// <summary>
+    /// Получает состояние пользователя по userId.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <returns>Строка состояния</returns>
     public static async Task<string> GetState(this IDatabase database, long userId) => (await GetFullState(database, userId)).State ?? string.Empty;
 
+    /// <summary>
+    /// Устанавливает состояние пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="state">Новое состояние</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> SetState(this IDatabase database, long userId, string state)
     {
         if (userId == -1)
@@ -42,6 +61,12 @@ public static class ModifyDatabase
         );
     }
 
+    /// <summary>
+    /// Очищает состояние пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> ClearState(this IDatabase database, long userId)
     {
         if (userId == -1)
@@ -50,6 +75,12 @@ public static class ModifyDatabase
         return await database.DeleteByField(Tabels[Place.State], "userId", userId);
     }
 
+    /// <summary>
+    /// Получает полную информацию о состоянии пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <returns>Кортеж (Id, State)</returns>
     private static async Task<(string Id, string? State)> GetFullState(IDatabase database, long userId)
     {
         if (userId == -1)
@@ -59,6 +90,14 @@ public static class ModifyDatabase
         return (record.Id, record.Fields.TryGetValue("nameState", out var value) ? value.ToString() : null);
     }
 
+    /// <summary>
+    /// Добавляет параметр пользователю.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="nameParam">Имя параметра</param>
+    /// <param name="param">Значение параметра</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> AddParam(this IDatabase database, long userId, string nameParam, string param)
     {
         if (userId == -1)
@@ -74,6 +113,12 @@ public static class ModifyDatabase
         return result.Success;
     }
 
+    /// <summary>
+    /// Получает параметры пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <returns>Кортеж (успех, словарь параметров)</returns>
     public static async Task<(bool Success, Dictionary<string, string> Params)> GetParams(this IDatabase database, long userId)
     {
         if (userId == -1)
@@ -98,6 +143,12 @@ public static class ModifyDatabase
         return dict.Count > 0 ? (true, dict) : (false, new Dictionary<string, string>());
     }
 
+    /// <summary>
+    /// Очищает параметры пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">ID пользователя</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> ClearParams(this IDatabase database, long userId)
     {
         if (userId == -1)
@@ -106,6 +157,12 @@ public static class ModifyDatabase
         return await database.DeleteByField(Tabels[Place.Params], "userId", userId);
     }
 
+    /// <summary>
+    /// Получает пользователя по Telegram ID.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">Telegram ID пользователя</param>
+    /// <returns>Пользователь или null</returns>
     public static async Task<User?> GetUser(this IDatabase database, long userId)
     {
         var record = await database.GetRecord(Tabels[Place.User], "telegram_id", userId);
@@ -125,6 +182,15 @@ public static class ModifyDatabase
         return user;
     }
 
+    /// <summary>
+    /// Добавляет пользователя в базу данных.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="telegramId">Telegram ID пользователя</param>
+    /// <param name="userId">ID пользователя в системе</param>
+    /// <param name="token">Токен пользователя</param>
+    /// <param name="lang">Язык пользователя</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> AddUser(this IDatabase database, long telegramId, int userId, string token, string lang)
     {
         var result = await database.Create(Tabels[Place.User], new Dictionary<string, object?>()
@@ -138,6 +204,13 @@ public static class ModifyDatabase
         return result.Success;
     }
 
+    /// <summary>
+    /// Устанавливает язык пользователя.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <param name="userId">Telegram ID пользователя</param>
+    /// <param name="lang">Язык</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> SetLangUser(this IDatabase database, long userId, string lang)
     {
         if (userId == -1)
@@ -158,6 +231,11 @@ public static class ModifyDatabase
         );
     }
 
+    /// <summary>
+    /// Создаёт локальные таблицы для хранения данных Telegram-бота.
+    /// </summary>
+    /// <param name="database">Интерфейс базы данных</param>
+    /// <returns>Успех операции</returns>
     public static async Task<bool> CreateLocalTables(this IDatabase database)
     {
         // Add "states" table

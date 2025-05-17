@@ -2,11 +2,24 @@
 
 namespace MonitorHandler.Utils;
 
+/// <summary>
+/// Класс для управления миграциями базы данных.
+/// </summary>
 public class MigrationManager(IDatabase db, int version)
 {
+    /// <summary>
+    /// Интерфейс работы с базой данных.
+    /// </summary>
     private readonly IDatabase _db = db;
+
+    /// <summary>
+    /// Версия схемы базы данных.
+    /// </summary>
     private readonly int _version = version;
 
+    /// <summary>
+    /// Выполняет миграцию базы данных до текущей версии.
+    /// </summary>
     public async Task Migrate()
     {
         if (_version <= 1)
@@ -15,6 +28,9 @@ public class MigrationManager(IDatabase db, int version)
         }
     }
 
+    /// <summary>
+    /// Выполняет миграцию схемы базы данных до версии 1.
+    /// </summary>
     private async Task MigrateV1()
     {
         await _db.CreateTable(

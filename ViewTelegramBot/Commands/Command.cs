@@ -7,20 +7,54 @@ using ViewTelegramBot.Utils;
 
 namespace ViewTelegramBot.Commands;
 
+/// <summary>
+/// Абстрактный базовый класс для всех команд Telegram-бота.
+/// </summary>
 public abstract class Command
 {
+    /// <summary>
+    /// Префикс команды (например, "/").
+    /// </summary>
     private const string CommandPrefix = "/";
 
+    /// <summary>
+    /// Массив поддерживаемых типов событий для команды.
+    /// </summary>
     private TypeEvents[]? _typeEvents;
+
+    /// <summary>
+    /// Уровень видимости команды.
+    /// </summary>
     private Visibility _visibility;
+
+    /// <summary>
+    /// Описание команды.
+    /// </summary>
     private string? _description;
+
+    /// <summary>
+    /// Список имён команды.
+    /// </summary>
     private List<string> _names = [];
+
+    /// <summary>
+    /// Список разрешённых уровней доступа.
+    /// </summary>
     private List<long> _accesses = [];
 
+    /// <summary>
+    /// Основное имя команды.
+    /// </summary>
     protected string Name => string.IsNullOrWhiteSpace(_names[0]) ? "default" : _names[0];
 
+    /// <summary>
+    /// Коллекция всех команд.
+    /// </summary>
     private static IReadOnlyCollection<Command?>? Commands { get; }
 
+    /// <summary>
+    /// Статический конструктор для инициализации списка команд.
+    /// </summary>
     static Command()
     {
         Commands = Assembly.GetAssembly(typeof(Command))?.GetTypes()
@@ -28,6 +62,9 @@ public abstract class Command
             .Select(x => Activator.CreateInstance(x) as Command).ToList().AsReadOnly();
     }
 
+    /// <summary>
+    /// Конструктор команды, инициализирует атрибуты.
+    /// </summary>
     protected Command()
     {
         var attributes = GetType().GetCustomAttributes(false);
@@ -55,6 +92,10 @@ public abstract class Command
         });
     }
 
+    /// <summary>
+    /// Выполняет команду по контексту.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     public static async Task ExecuteAsync(Context ctx)
     {
         string nameCommand;
@@ -121,6 +162,10 @@ public abstract class Command
         await ExecuteMethod(command, method, ctx);
     }
 
+    /// <summary>
+    /// Выполняет команду по умолчанию.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     protected static async Task DefaultCommand(Context? ctx)
     {
         var command = Commands?.FirstOrDefault(x => x?.GetType().GetCustomAttributes().HaveAttribute<DefaultClassAttribute>() ?? false);
@@ -128,6 +173,12 @@ public abstract class Command
         await ExecuteMethod(command, method, ctx);
     }
 
+    /// <summary>
+    /// Выполняет команду по умолчанию с заданным состоянием и типом события.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
+    /// <param name="state">Состояние</param>
+    /// <param name="type">Тип события</param>
     protected static async Task DefaultCommand(Context? ctx, string state, TypeEvents type)
     {
         var command = Commands?.FirstOrDefault(x => x?.GetType().GetCustomAttributes().HaveAttribute<DefaultClassAttribute>() ?? false);
@@ -135,6 +186,12 @@ public abstract class Command
         await ExecuteMethod(command, method, ctx);
     }
 
+    /// <summary>
+    /// Выполняет указанный метод команды.
+    /// </summary>
+    /// <param name="command">Команда</param>
+    /// <param name="method">Метод</param>
+    /// <param name="ctx">Контекст</param>
     private static async Task ExecuteMethod(Command? command, MethodBase? method, Context? ctx)
     {
         try
@@ -161,6 +218,10 @@ public abstract class Command
         }
     }
 
+    /// <summary>
+    /// Отправляет сообщение об ошибке.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     private static async Task Error(Context? ctx)
     {
         var text = ctx?.PhrasesManager["error"];
@@ -174,6 +235,11 @@ public abstract class Command
             await ctx.Send(text);
     }
 
+    /// <summary>
+    /// Отправляет сообщение о недостаточном уровне доступа.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
+    /// <param name="access">Требуемый уровень доступа</param>
     private static async Task NotAccess(Context? ctx, long access)
     {
         var text = ctx?.PhrasesManager["error_to_get_access"] ?? string.Empty;
@@ -197,6 +263,11 @@ public abstract class Command
             await ctx.Send(text, keyboard);
     }
 
+    /// <summary>
+    /// Отправляет сообщение о невозможности выполнить предусловие.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
+    /// <param name="message">Сообщение</param>
     private static async Task NotPredict(Context? ctx, string? message)
     {
         if (string.IsNullOrWhiteSpace(message) || ctx == null)
@@ -208,6 +279,10 @@ public abstract class Command
             await ctx.Send(message);
     }
 
+    /// <summary>
+    /// Отправляет сообщение о том, что команда не найдена.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     private static async Task NotFound(Context? ctx)
     {
         var text = ctx?.PhrasesManager["command_not_found"];
@@ -221,6 +296,12 @@ public abstract class Command
             await ctx.Send(text);
     }
 
+    /// <summary>
+    /// Проверяет предусловия для команды.
+    /// </summary>
+    /// <param name="command">Команда</param>
+    /// <param="ctx">Контекст</param>
+    /// <returns>Результат проверки предусловия</returns>
     private static async Task<PreconditionResult> CheckPreconditions(Command command, Context? ctx)
     {
         var attrs = command.GetType().GetCustomAttributes();
@@ -242,6 +323,13 @@ public abstract class Command
         return new PreconditionResult(true, default);
     }
 
+    /// <summary>
+    /// Получает команду по имени, типу события и уровню доступа.
+    /// </summary>
+    /// <param name="nameCommand">Имя команды</param>
+    /// <param name="type">Тип события</param>
+    /// <param name="access">Уровень доступа</param>
+    /// <returns>Команда или null</returns>
     private static Command? GetCommandByName(string nameCommand, TypeEvents type, long access)
     {
         if (Commands == null)

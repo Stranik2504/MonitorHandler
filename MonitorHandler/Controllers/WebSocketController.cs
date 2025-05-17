@@ -8,6 +8,9 @@ using Newtonsoft.Json;
 
 namespace MonitorHandler.Controllers;
 
+/// <summary>
+/// Контроллер для обработки WebSocket-соединения с сервером.
+/// </summary>
 public class WebSocketController (
     ILogger<WebSocketController> logger,
     IDatabase db,
@@ -15,21 +18,64 @@ public class WebSocketController (
     Config config
 )
 {
+    /// <summary>
+    /// Сообщение-ответ по умолчанию (OK).
+    /// </summary>
     private readonly SentMessage OkMessage = new SentMessage() { Type = TypeSentMessage.Ok, Data = string.Empty };
 
+    /// <summary>
+    /// WebSocket-соединение.
+    /// </summary>
     private readonly WebSocket _webSocket = webSocket;
+
+    /// <summary>
+    /// Логгер для вывода информации и ошибок контроллера WebSocket.
+    /// </summary>
     private readonly ILogger<WebSocketController> _logger = logger;
+
+    /// <summary>
+    /// Интерфейс работы с базой данных.
+    /// </summary>
     private readonly IDatabase _db = db;
+
+    /// <summary>
+    /// Конфигурация приложения.
+    /// </summary>
     private readonly Config _config = config;
+
+    /// <summary>
+    /// Токен отмены для асинхронных операций.
+    /// </summary>
     private readonly CancellationToken _cancellationToken = CancellationToken.None;
 
+    /// <summary>
+    /// Идентификатор сервера, связанного с этим WebSocket.
+    /// </summary>
     private int _serverId;
+
+    /// <summary>
+    /// Флаг, указывающий, был ли сервер перезапущен.
+    /// </summary>
     private bool _isRestarted = false;
+
+    /// <summary>
+    /// Очередь сообщений, ожидающих отправки клиенту.
+    /// </summary>
     private readonly ConcurrentQueue<SentMessage> _messages = new();
+
+    /// <summary>
+    /// TaskCompletionSource для получения результата от клиента.
+    /// </summary>
     private readonly TaskCompletionSource<string> _resultTcs = new();
 
+    /// <summary>
+    /// Словарь всех активных WebSocket-клиентов по serverId.
+    /// </summary>
     private static readonly ConcurrentDictionary<int, WebSocketController> _webSocketClients = new();
 
+    /// <summary>
+    /// Основной цикл обработки WebSocket-соединения.
+    /// </summary>
     public async Task Run()
     {
         var buffer = new byte[1024 * 4];
@@ -195,6 +241,10 @@ public class WebSocketController (
         _logger.LogInformation("[WebSocketController]: WebSocket closed");
     }
 
+    /// <summary>
+    /// Ожидает результат от клиента с таймаутом.
+    /// </summary>
+    /// <returns>Результат или пустая строка при таймауте</returns>
     public async Task<string> WaitResult()
     {
         var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_config.TimeWaitAnswer), _cancellationToken);
@@ -206,6 +256,10 @@ public class WebSocketController (
         return await _resultTcs.Task;
     }
 
+    /// <summary>
+    /// Добавляет сообщение на запуск контейнера в очередь.
+    /// </summary>
+    /// <param name="containerId">ID контейнера</param>
     public void AddMessageStartContainer(int containerId)
     {
         var message = new SentMessage()
@@ -217,6 +271,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Добавляет сообщение на остановку контейнера в очередь.
+    /// </summary>
+    /// <param name="containerId">ID контейнера</param>
     public void AddMessageStopContainer(int containerId)
     {
         var message = new SentMessage()
@@ -228,6 +286,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Добавляет сообщение на удаление контейнера в очередь.
+    /// </summary>
+    /// <param name="containerId">ID контейнера</param>
     public void AddMessageRemoveContainer(int containerId)
     {
         var message = new SentMessage()
@@ -239,6 +301,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Добавляет сообщение на удаление образа в очередь.
+    /// </summary>
+    /// <param name="imageId">ID образа</param>
     public void AddMessageRemoveImage(int imageId)
     {
         var message = new SentMessage()
@@ -250,6 +316,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Добавляет сообщение на запуск скрипта в очередь.
+    /// </summary>
+    /// <param name="script">Скрипт</param>
     public void AddMessageRunScript(string script)
     {
         var message = new SentMessage()
@@ -261,6 +331,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Добавляет сообщение на выполнение команды в очередь.
+    /// </summary>
+    /// <param name="command">Команда</param>
     public void AddMessageRunCommand(string command)
     {
         var message = new SentMessage()
@@ -272,6 +346,10 @@ public class WebSocketController (
         _messages.Enqueue(message);
     }
 
+    /// <summary>
+    /// Возвращает следующее сообщение из очереди, если оно есть.
+    /// </summary>
+    /// <returns>Сообщение или null</returns>
     private SentMessage? NeededRequest()
     {
         if (_messages.IsEmpty)
@@ -280,6 +358,12 @@ public class WebSocketController (
         return _messages.TryDequeue(out var message) ? message : null;
     }
 
+    /// <summary>
+    /// Отправляет сообщение клиенту по WebSocket.
+    /// </summary>
+    /// <param name="message">Сообщение</param>
+    /// <param name="type">Тип сообщения WebSocket</param>
+    /// <param name="endOfMessage">Конец сообщения</param>
     private async Task Send(SentMessage message, WebSocketMessageType type, bool endOfMessage)
     {
         var messageString = JsonConvert.SerializeObject(message);
@@ -293,6 +377,11 @@ public class WebSocketController (
         );
     }
 
+    /// <summary>
+    /// Получает идентификатор сервера по токену.
+    /// </summary>
+    /// <param name="token">Токен сервера</param>
+    /// <returns>ID сервера</returns>
     private async Task<int> GetServerId(string? token)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -309,6 +398,11 @@ public class WebSocketController (
         return record.Fields.GetInt("id");
     }
 
+    /// <summary>
+    /// Добавляет метрику в базу данных.
+    /// </summary>
+    /// <param name="metric">Метрика</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> AddMetric(Metric? metric)
     {
         if (metric == null)
@@ -330,6 +424,11 @@ public class WebSocketController (
         return result.Success;
     }
 
+    /// <summary>
+    /// Устанавливает статус сервера.
+    /// </summary>
+    /// <param name="status">Статус</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> SetStatus(string status)
     {
         var result = await _db.Update(
@@ -344,11 +443,20 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Полностью удаляет docker-записи для сервера.
+    /// </summary>
+    /// <returns>Успех операции</returns>
     private async Task<bool> DeleteDockerFull()
     {
         return await _db.DeleteByField("docker", "server_id", _serverId);
     }
 
+    /// <summary>
+    /// Удаляет все записи по serverId из указанной таблицы.
+    /// </summary>
+    /// <param name="tableName">Имя таблицы</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> DeleteAllByServerId(string tableName)
     {
         var record = await _db.GetRecord("docker", "server_id", _serverId);
@@ -381,6 +489,11 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Добавляет docker-образ в базу данных.
+    /// </summary>
+    /// <param name="image">Образ</param>
+    /// <returns>Успех и ID образа</returns>
     private async Task<(bool Success, int Id)> AddDockerImage(DockerImage image)
     {
         var result = await _db.Create(
@@ -396,6 +509,11 @@ public class WebSocketController (
         return (result.Success, result.Id.ToInt());
     }
 
+    /// <summary>
+    /// Добавляет docker-образ и обновляет docker-запись сервера.
+    /// </summary>
+    /// <param name="image">Образ</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> AddDockerImageFull(DockerImage image)
     {
         var result = await _db.Create(
@@ -431,6 +549,11 @@ public class WebSocketController (
         return res;
     }
 
+    /// <summary>
+    /// Добавляет docker-контейнер в базу данных.
+    /// </summary>
+    /// <param name="container">Контейнер</param>
+    /// <returns>Успех и ID контейнера</returns>
     private async Task<(bool Success, int Id)> AddDockerContainer(DockerContainer container)
     {
         var record = await _db.GetRecord("docker", "server_id", _serverId);
@@ -464,6 +587,11 @@ public class WebSocketController (
         return (result.Success, result.Id.ToInt());
     }
 
+    /// <summary>
+    /// Добавляет docker-контейнер и обновляет docker-запись сервера.
+    /// </summary>
+    /// <param name="container">Контейнер</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> AddDockerContainerFull(DockerContainer container)
     {
         var record = await _db.GetRecord("docker", "server_id", _serverId);
@@ -512,6 +640,10 @@ public class WebSocketController (
         return res;
     }
 
+    /// <summary>
+    /// Создаёт docker-запись для сервера.
+    /// </summary>
+    /// <returns>Успех операции</returns>
     private async Task<bool> SetDocker()
     {
         var res = await _db.Create(
@@ -527,6 +659,11 @@ public class WebSocketController (
         return res.Success;
     }
 
+    /// <summary>
+    /// Устанавливает список docker-образов для сервера.
+    /// </summary>
+    /// <param name="images">Список образов</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> SetDockerImages(List<DockerImage>? images)
     {
         if (images == null)
@@ -557,6 +694,11 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Устанавливает список docker-контейнеров для сервера.
+    /// </summary>
+    /// <param name="containers">Список контейнеров</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> SetDockerContainers(List<DockerContainer>? containers)
     {
         if (containers == null)
@@ -587,6 +729,11 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Удаляет docker-образ по хэшу.
+    /// </summary>
+    /// <param name="hashImage">Хэш образа</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> RemoveDockerImage(string hashImage)
     {
         var record = await _db.GetRecord("images", "hash", hashImage);
@@ -621,6 +768,11 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Удаляет docker-контейнер по хэшу.
+    /// </summary>
+    /// <param name="hashContainer">Хэш контейнера</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> RemoveDockerContainer(string hashContainer)
     {
         var record = await _db.GetRecord("containers", "hash", hashContainer);
@@ -655,6 +807,11 @@ public class WebSocketController (
         return result;
     }
 
+    /// <summary>
+    /// Обновляет docker-контейнер по хэшу.
+    /// </summary>
+    /// <param name="container">Контейнер</param>
+    /// <returns>Успех операции</returns>
     private async Task<bool> UpdateDockerContainer(DockerContainer container)
     {
         var dict = new Dictionary<string, object>()
@@ -673,5 +830,10 @@ public class WebSocketController (
         );
     }
 
+    /// <summary>
+    /// Получает контроллер WebSocket по serverId.
+    /// </summary>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Контроллер или null</returns>
     public static WebSocketController? GetController(int serverId) => _webSocketClients.GetValueOrDefault(serverId);
 }

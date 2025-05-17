@@ -4,6 +4,9 @@ using MonitorHandler.Utils;
 
 namespace MonitorHandler.Controllers;
 
+/// <summary>
+/// Контроллер для получения и установки метрик сервера.
+/// </summary>
 [ApiController]
 [Route("/api/v1/server/metrics")]
 public class MetricsController(
@@ -11,9 +14,23 @@ public class MetricsController(
     ServerManager manager
 ) : Controller
 {
+    /// <summary>
+    /// Логгер для вывода информации и ошибок контроллера Metrics.
+    /// </summary>
     private readonly ILogger<MetricsController> _logger = logger;
+
+    /// <summary>
+    /// Менеджер серверов для работы с метриками.
+    /// </summary>
     private readonly ServerManager _manager = manager;
 
+    /// <summary>
+    /// Получает последние метрики сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Последние метрики сервера</returns>
     [HttpGet]
     public async Task<ActionResult<Metric>> GetMetrics(
         [FromHeader] int userId,
@@ -38,8 +55,13 @@ public class MetricsController(
         return metrics;
     }
 
-
-    // For set metrics instead of ws
+    /// <summary>
+    /// Устанавливает метрики сервера (альтернатива WebSocket).
+    /// </summary>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="metric">Объект метрик</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost]
     public async Task<ActionResult> SetMetrics(
         [FromHeader] string token,

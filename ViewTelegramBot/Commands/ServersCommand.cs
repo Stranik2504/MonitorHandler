@@ -8,11 +8,18 @@ using ViewTelegramBot.Utils.Models;
 
 namespace ViewTelegramBot.Commands;
 
+/// <summary>
+/// Команда для управления серверами пользователя через Telegram-бота.
+/// </summary>
 [Names("servers")]
 [Visibility(Visibility.Visible)]
 [TypeEvent(TypeEvents.Text, TypeEvents.Callback)]
 public class ServersCommand : Command
 {
+    /// <summary>
+    /// Отображает главное меню управления серверами.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("default")]
     public async Task DefaultMenu(Context ctx)
     {
@@ -29,6 +36,10 @@ public class ServersCommand : Command
         await ctx.Answer();
     }
 
+    /// <summary>
+    /// Очищает состояние и параметры пользователя и возвращает в главное меню серверов.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("clear")]
     public async Task ClearAndDefaultMenu(Context ctx)
     {
@@ -38,6 +49,10 @@ public class ServersCommand : Command
         await DefaultMenu(ctx);
     }
 
+    /// <summary>
+    /// Отображает список серверов пользователя для выбора.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("choose")]
     public async Task ChooseServer(Context ctx)
     {
@@ -90,6 +105,10 @@ public class ServersCommand : Command
         await ctx.Answer();
     }
 
+    /// <summary>
+    /// Отображает информацию о выбранном сервере.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("server")]
     public async Task ViewServer(Context ctx)
     {
@@ -170,6 +189,10 @@ public class ServersCommand : Command
         );
     }
 
+    /// <summary>
+    /// Запускает процесс добавления нового сервера (запрос имени).
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [CallbackState("add")]
     public async Task AddServer(Context ctx)
     {
@@ -185,6 +208,10 @@ public class ServersCommand : Command
         await ctx.SetState("servers:add_name");
     }
 
+    /// <summary>
+    /// Устанавливает имя нового сервера и запрашивает IP.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [State("add_name")]
     public async Task SetNameServer(Context ctx)
     {
@@ -201,6 +228,10 @@ public class ServersCommand : Command
         await ctx.SetState("servers:add_ip");
     }
 
+    /// <summary>
+    /// Устанавливает IP нового сервера и завершает добавление.
+    /// </summary>
+    /// <param name="ctx">Контекст</param>
     [State("add_ip")]
     public async Task SetIpServer(Context ctx)
     {
@@ -269,6 +300,11 @@ public class ServersCommand : Command
 
     }
 
+    /// <summary>
+    /// Проверяет корректность IP-адреса.
+    /// </summary>
+    /// <param name="ip">IP-адрес</param>
+    /// <returns>True, если IP корректен</returns>
     private static bool IsValidIp(string ip)
     {
         var regex = new Regex(@"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$");

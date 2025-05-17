@@ -4,6 +4,9 @@ using MonitorHandler.Utils;
 
 namespace MonitorHandler.Controllers;
 
+/// <summary>
+/// Контроллер для управления пользовательскими скриптами на сервере.
+/// </summary>
 [ApiController]
 [Route("/api/v1/server/script")]
 public class ScriptController(
@@ -11,9 +14,23 @@ public class ScriptController(
     ServerManager manager
 ) : Controller
 {
+    /// <summary>
+    /// Логгер для вывода информации и ошибок контроллера Script.
+    /// </summary>
     private readonly ILogger<ScriptController> _logger = logger;
+
+    /// <summary>
+    /// Менеджер серверов для выполнения операций со скриптами.
+    /// </summary>
     private readonly ServerManager _manager = manager;
 
+    /// <summary>
+    /// Получает список всех скриптов на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <returns>Список скриптов</returns>
     [HttpGet]
     public async Task<ActionResult<List<Script>>> GetScripts(
         [FromHeader] int userId,
@@ -38,6 +55,14 @@ public class ScriptController(
         return scripts;
     }
 
+    /// <summary>
+    /// Получает конкретный скрипт по его идентификатору.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Скрипт</returns>
     [HttpGet("script")]
     public async Task<ActionResult<Script>> GetScript(
         [FromHeader] int userId,
@@ -63,6 +88,14 @@ public class ScriptController(
         return script;
     }
 
+    /// <summary>
+    /// Запускает указанный скрипт на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost("run")]
     public async Task<ActionResult> RunScript(
         [FromHeader] int userId,
@@ -88,6 +121,14 @@ public class ScriptController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Создаёт новый скрипт на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="script">Объект скрипта</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPut]
     public async Task<ActionResult> CreateScript(
         [FromHeader] int userId,
@@ -113,6 +154,14 @@ public class ScriptController(
         return result ? Ok() : Problem();
     }
 
+    /// <summary>
+    /// Удаляет скрипт с сервера.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="scriptId">ID скрипта</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpDelete]
     public async Task<ActionResult> DeleteScript(
         [FromHeader] int userId,
@@ -138,6 +187,14 @@ public class ScriptController(
         return result ? Ok() : Problem();
     }
 
+    /// <summary>
+    /// Выполняет произвольную команду на сервере.
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="token">Токен авторизации</param>
+    /// <param name="serverId">ID сервера</param>
+    /// <param name="command">Команда для выполнения</param>
+    /// <returns>Результат выполнения операции</returns>
     [HttpPost("command")]
     public async Task<ActionResult> RunCommand(
         [FromHeader] int userId,

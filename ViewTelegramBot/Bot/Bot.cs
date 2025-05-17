@@ -16,11 +16,24 @@ using User = ViewTelegramBot.Bot.Contexts.User;
 
 namespace ViewTelegramBot.Bot;
 
+/// <summary>
+/// Класс Telegram-бота, реализующий интерфейс IBot.
+/// </summary>
 public class Bot(string token) : IBot
 {
+    /// <summary>
+    /// Событие для управления жизненным циклом бота.
+    /// </summary>
     private readonly ManualResetEvent _active = new(false);
+
+    /// <summary>
+    /// Клиент Telegram Bot API.
+    /// </summary>
     private readonly ITelegramBotClient _bot = new TelegramBotClient(token);
 
+    /// <summary>
+    /// Запускает цикл обработки обновлений Telegram-бота.
+    /// </summary>
     public void Start()
     {
         var cts = new CancellationTokenSource();
@@ -40,11 +53,20 @@ public class Bot(string token) : IBot
         cts.Cancel();
     }
 
+    /// <summary>
+    /// Останавливает цикл обработки обновлений Telegram-бота.
+    /// </summary>
     public void Stop()
     {
         _active.Reset();
     }
 
+    /// <summary>
+    /// Обрабатывает входящее обновление Telegram.
+    /// </summary>
+    /// <param name="bot">Клиент Telegram Bot API</param>
+    /// <param name="update">Обновление</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken cancellationToken)
     {
         switch (update.Type)
@@ -65,6 +87,11 @@ public class Bot(string token) : IBot
 
     }
 
+    /// <summary>
+    /// Обрабатывает входящее текстовое сообщение.
+    /// </summary>
+    /// <param name="message">Сообщение</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     private async Task OnMessage(Message? message, CancellationToken? cancellationToken = null)
     {
         if (message == null)
@@ -98,6 +125,11 @@ public class Bot(string token) : IBot
         await Command.ExecuteAsync(ctx);
     }
 
+    /// <summary>
+    /// Обрабатывает входящий callback-запрос.
+    /// </summary>
+    /// <param name="callbackQuery">Callback-запрос</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     private async Task OnCallbackQuery(CallbackQuery? callbackQuery, CancellationToken? cancellationToken = null)
     {
         if (callbackQuery == null)
@@ -142,6 +174,12 @@ public class Bot(string token) : IBot
         await Command.ExecuteAsync(ctx);
     }
 
+    /// <summary>
+    /// Обрабатывает ошибку при опросе Telegram API.
+    /// </summary>
+    /// <param name="bot">Клиент Telegram Bot API</param>
+    /// <param name="exception">Исключение</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     private static Task HandlePollingErrorAsync(ITelegramBotClient bot, Exception exception, CancellationToken cancellationToken)
     {
         exception.Log();
@@ -149,6 +187,14 @@ public class Bot(string token) : IBot
         return null;
     }
 
+    /// <summary>
+    /// Отправляет сообщение или документ в чат.
+    /// </summary>
+    /// <param name="chat">Чат</param>
+    /// <param name="content">Контент</param>
+    /// <param name="parseMode">Режим парсинга</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Отправленный контент</returns>
     public async Task<Content?> Send(Chat? chat, Content? content, ParseMode parseMode = ParseMode.Markdown, CancellationToken? cancellationToken = null)
     {
         if (content == null || chat == null || chat.Id == -1)
@@ -188,6 +234,15 @@ public class Bot(string token) : IBot
         return result;
     }
 
+    /// <summary>
+    /// Редактирует сообщение в чате.
+    /// </summary>
+    /// <param name="old">Старый контент</param>
+    /// <param name="chat">Чат</param>
+    /// <param name="content">Новый контент</param>
+    /// <param name="parseMode">Режим парсинга</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Отредактированный контент</returns>
     public async Task<Content?> Edit(Content? old, Chat? chat, Content? content, ParseMode parseMode = ParseMode.Markdown, CancellationToken? cancellationToken = null)
     {
         if (content == null)
@@ -234,6 +289,13 @@ public class Bot(string token) : IBot
         return result;
     }
 
+    /// <summary>
+    /// Удаляет сообщение из чата.
+    /// </summary>
+    /// <param name="chatId">ID чата</param>
+    /// <param name="messageId">ID сообщения</param>
+    /// <param name="timeSent">Время отправки сообщения</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     public async Task Delete(long chatId, int messageId, DateTime timeSent, CancellationToken? cancellationToken = null)
     {
         if ((DateTime.Now - timeSent).TotalDays >= 2)
@@ -256,6 +318,13 @@ public class Bot(string token) : IBot
         }
     }
 
+    /// <summary>
+    /// Отвечает на callback-запрос.
+    /// </summary>
+    /// <param name="id">ID callback-запроса</param>
+    /// <param name="text">Текст ответа</param>
+    /// <param name="url">URL для перехода</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     public async Task Answer(string id, string? text = null, string? url = null, CancellationToken? cancellationToken = null)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -269,6 +338,12 @@ public class Bot(string token) : IBot
         );
     }
 
+    /// <summary>
+    /// Получает поток файла по fileId.
+    /// </summary>
+    /// <param name="fileId">ID файла</param>
+    /// <param name="destination">Поток назначения</param>
+    /// <param name="cancellationToken">Токен отмены</param>
     public async Task GetFileStream(string fileId, Stream destination, CancellationToken? cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(fileId))
@@ -281,8 +356,19 @@ public class Bot(string token) : IBot
         );
     }
 
+    /// <summary>
+    /// Получает строку для упоминания пользователя.
+    /// </summary>
+    /// <param name="username">Username</param>
+    /// <param name="id">ID пользователя</param>
+    /// <returns>Строка для пинга</returns>
     public string GetPing(string username, long id) => $"[@{(string.IsNullOrWhiteSpace(username) ? Program.Config?.UserNoHaveUsername : username)}](tg://user?id={id})";
 
+    /// <summary>
+    /// Преобразует объект Message в Content.
+    /// </summary>
+    /// <param name="message">Сообщение Telegram</param>
+    /// <returns>Контент</returns>
     private static Content? Convert(Message? message)
     {
         if (message == null)
@@ -324,6 +410,11 @@ public class Bot(string token) : IBot
         return result;
     }
 
+    /// <summary>
+    /// Преобразует режим парсинга в Telegram-формат.
+    /// </summary>
+    /// <param name="parseMode">Режим парсинга</param>
+    /// <returns>Режим Telegram</returns>
     private static Telegram.Bot.Types.Enums.ParseMode? ConvertParseMode(ParseMode parseMode) => parseMode switch
     {
         ParseMode.Markdown => Telegram.Bot.Types.Enums.ParseMode.Markdown,

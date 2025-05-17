@@ -4,8 +4,15 @@ using MonitorHandler.Utils;
 
 namespace MonitorHandler
 {
+    /// <summary>
+    /// Главный класс точки входа приложения MonitorHandler.
+    /// </summary>
     public class Program
     {
+        /// <summary>
+        /// Главная асинхронная точка входа приложения.
+        /// </summary>
+        /// <param name="args">Аргументы командной строки</param>
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
