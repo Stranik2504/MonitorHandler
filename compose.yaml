@@ -6,6 +6,8 @@
       dockerfile: MonitorHandler/Dockerfile
     volumes:
       - ./MonitorHandler/files:/app/files
+    ports:
+      - "5020:8080"
 
   viewtelegrambot:
     image: viewtelegrambot
