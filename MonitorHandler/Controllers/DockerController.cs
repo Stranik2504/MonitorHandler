@@ -31,11 +31,11 @@ public class DockerController(
     /// <param name="token">Токен авторизации</param>
     /// <param name="serverId">ID сервера</param>
     /// <returns>Список контейнеров Docker</returns>
-    [HttpGet("containers")]
+    [HttpGet("{serverId:int}/containers")]
     public async Task<ActionResult<List<DockerContainer>>> GetContainers(
         [FromHeader] int userId,
         [FromHeader] string token,
-        int serverId
+        [FromRoute] int serverId
     )
     {
         _logger.LogInformation("[DockerController]: GetContainers start");
@@ -62,11 +62,11 @@ public class DockerController(
     /// <param name="token">Токен авторизации</param>
     /// <param name="serverId">ID сервера</param>
     /// <returns>Список Docker-образов</returns>
-    [HttpGet("images")]
+    [HttpGet("{serverId:int}/images")]
     public async Task<ActionResult<List<DockerImage>>> GetImages(
         [FromHeader]  int userId,
         [FromHeader] string token,
-        int serverId
+        [FromRoute] int serverId
     )
     {
         _logger.LogInformation("[DockerController]: GetImages start");

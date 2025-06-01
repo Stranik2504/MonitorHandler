@@ -98,8 +98,7 @@ public class ServersController(
     public async Task<ActionResult> AddServer(
         [FromHeader] int userId,
         [FromHeader] string userToken,
-        [FromQuery] string ip,
-        [FromQuery] string token
+        [FromBody] (string Ip, string Token) serverInfo
     )
     {
         _logger.LogInformation("[ServerController]: AddServer start");
@@ -108,7 +107,7 @@ public class ServersController(
 
         try
         {
-            result = await _manager.AddServer(userId, userToken, ip, token);
+            result = await _manager.AddServer(userId, userToken, serverInfo.Ip, serverInfo.Token);
         }
         catch (Exception ex)
         {
@@ -159,11 +158,11 @@ public class ServersController(
     /// <param name="userToken">Токен пользователя</param>
     /// <param name="serverId">ID сервера</param>
     /// <returns>Результат выполнения операции</returns>
-    [HttpDelete]
+    [HttpDelete("{serverId:int}")]
     public async Task<ActionResult> DeleteServer(
         [FromHeader] int userId,
         [FromHeader] string userToken,
-        [FromHeader] int serverId
+        [FromRoute] int serverId
     )
     {
         _logger.LogInformation("[ServerController]: DeleteServer start");

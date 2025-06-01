@@ -157,7 +157,7 @@ public class ServerManager
         if (record.Fields.GetString("ip") != ip)
             throw new Exception("Invalid token or ip");
 
-        var result = await _db.Create("user_server", new Dictionary<string, object>()
+        var result = await _db.Create("user_server", new Dictionary<string, object?>()
         {
             { "server_id", record.Id },
             { "user_id", userId },
@@ -204,7 +204,63 @@ public class ServerManager
     {
         await Validate(userId, userToken, serverId);
 
-        var result = await _db.Delete("servers", serverId.ToString());
+        var records = _db.GetAllRecordsByField(
+            "user_server",
+            "server_id",
+            serverId.ToString()
+        );
+
+        var cnt = 0;
+
+        await foreach (var record in records)
+        {
+            if (string.IsNullOrWhiteSpace(record.Id)) continue;
+
+            if (record.Fields.GetInt("user_id") != userId)
+            {
+                cnt++;
+                continue;
+            }
+
+            var deleteResult = await _db.Delete("user_server", record.Id);
+
+            if (!deleteResult)
+                throw new Exception("Failed to delete user-server link");
+        }
+
+        if (cnt != 0)
+            return true;
+
+        var result = await _db.DeleteByField("metrics", "server_id", serverId.ToString());
+
+        if (!result)
+            throw new Exception("Failed to delete server metrics");
+
+        await foreach (var record in _db.GetAllRecordsByField("docker", "server_id", serverId.ToString()))
+        {
+            if (string.IsNullOrWhiteSpace(record.Id)) continue;
+
+            var containers = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("containers")) ?? [];
+            var images = JsonConvert.DeserializeObject<List<int>>(record.Fields.GetString("images")) ?? [];
+
+            foreach (var containerId in containers)
+                result &= await _db.Delete("containers", containerId.ToString());
+
+            foreach (var imageId in images)
+                result &= await _db.Delete("images", imageId.ToString());
+        }
+
+        await foreach (var record in _db.GetAllRecordsByField("scripts", "server_id", serverId.ToString()))
+        {
+            if (string.IsNullOrWhiteSpace(record.Id)) continue;
+
+            if (string.IsNullOrWhiteSpace(record.Fields.GetString("filename"))) continue;
+
+            if (File.Exists(Path.Combine(ScriptFolder, record.Fields.GetString("filename"))))
+                File.Delete(Path.Combine(ScriptFolder, record.Fields.GetString("filename")));
+
+            result &= await _db.Delete("scripts", record.Id);
+        }
 
         return result;
     }
@@ -621,7 +677,7 @@ public class ServerManager
         await File.WriteAllTextAsync(Path.Combine(ScriptFolder, filename), script.Text);
         script.Text = Path.Combine(ScriptFolder, filename);
 
-        var paramScript = new Dictionary<string, object>()
+        var paramScript = new Dictionary<string, object?>()
         {
             { "server_id", serverId },
             { "filename", script.Text }
@@ -695,6 +751,8 @@ public class ServerManager
     {
         var listClear = new List<int>();
 
+        var dct = new Dictionary<int, (DateTime Date, int Id)>();
+
         await foreach (var metric in _db.GetAllRecords("metrics"))
         {
             if (string.IsNullOrWhiteSpace(metric.Id)) continue;
@@ -707,7 +765,28 @@ public class ServerManager
                     continue;
             }
 
-            listClear.Add(metric.Fields.GetInt("id"));
+            var serverId = metric.Fields.GetInt("server_id");
+
+            if (serverId == 0)
+            {
+                listClear.Add(metric.Fields.GetInt("id"));
+                continue;
+            }
+
+            if (!dct.TryGetValue(serverId, out var value))
+            {
+                dct.Add(serverId, (time, metric.Fields.GetInt("id")));
+                continue;
+            }
+
+            if (value.Date <= time)
+            {
+                listClear.Add(metric.Fields.GetInt("id"));
+                continue;
+            }
+
+            listClear.Add(value.Id);
+            dct[serverId] = (time, metric.Fields.GetInt("id"));
         }
 
         var result = true;

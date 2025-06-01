@@ -7,6 +7,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 using ViewTelegramBot.Attributes;
 using ViewTelegramBot.Bot.Contexts;
 using ViewTelegramBot.Bot.KeyboardUtls;
+using ViewTelegramBot.Bot.Phrase;
 
 namespace ViewTelegramBot.Utils;
 
@@ -315,6 +316,41 @@ public static class Additions
 
         return default;
     }
+
+    /// <summary>
+    /// Возвращает максимальное значение из переданных.
+    /// </summary>
+    /// <typeparam name="T">Тип значения</typeparam>
+    /// <param name="values">Массив значений</param>
+    /// <returns>Максимальное значение</returns>
+    public static T Max<T>(params T[] values) where T : IComparable<T>
+    {
+        if (values == null || values.Length == 0)
+            throw new ArgumentException("Values cannot be null or empty.");
+
+        var maxValue = values[0];
+
+        foreach (var value in values)
+        {
+            if (value.CompareTo(maxValue) > 0)
+                maxValue = value;
+        }
+        return maxValue;
+    }
+
+    /// <summary>
+    /// Преобразует количество байт в человекочитаемый формат.
+    /// </summary>
+    /// <param name="bytes">Количество байт</param>
+    /// <param name="phrasesManager">Менеджер фраз</param>
+    /// <returns>Строка с размером</returns>
+    public static string ConvertToNormalViewBytes(this ulong bytes, PhrasesManager phrasesManager) => bytes switch
+    {
+        < 1024 => $"{bytes} {phrasesManager["bytes"]}",
+        < 1024 * 1024 => $"{(double)bytes / 1024:F2} {phrasesManager["kilobytes"]}",
+        < 1024 * 1024 * 1024 => $"{(double)bytes / (1024 * 1024):F2} {phrasesManager["megabytes"]}",
+        _ => $"{(double)bytes / (1024 * 1024 * 1024):F2} {phrasesManager["gigabytes"]}"
+    };
 }
 
 /// <summary>
@@ -326,11 +362,11 @@ public class ServerInfo
     /// Имя сервера.
     /// </summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// IP-адрес сервера.
     /// </summary>
     [JsonPropertyName("ip")]
-    public string Ip { get; set; }
+    public string Ip { get; set; } = string.Empty;
 }

@@ -4,9 +4,13 @@
     build:
       context: .
       dockerfile: MonitorHandler/Dockerfile
+    volumes:
+      - ./MonitorHandler/files:/app/files
 
   viewtelegrambot:
     image: viewtelegrambot
     build:
       context: .
       dockerfile: ViewTelegramBot/Dockerfile
+    volumes:
+      - ./ViewTelegramBot/files:/app/files
