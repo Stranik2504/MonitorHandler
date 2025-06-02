@@ -78,7 +78,7 @@ public class WebSocketController (
     /// </summary>
     public async Task Run()
     {
-        var buffer = new byte[1024 * 4];
+        var buffer = new byte[1024 * 100];
 
         // Read a message
         var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
