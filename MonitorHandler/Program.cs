@@ -1,3 +1,4 @@
+using System.Reflection;
 using Database;
 using MonitorHandler.Controllers;
 using MonitorHandler.Utils;
@@ -73,6 +74,21 @@ namespace MonitorHandler
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }*/
+
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Title = "MonitorHandler API",
+                    Version = "v1"
+                });
+
+                options.SupportNonNullableReferenceTypes();
+
+                var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+            });
 
             app.UseHttpsRedirection();
 

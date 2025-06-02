@@ -25,7 +25,7 @@
     "text_enter_server_name": "Enter the server name (for easy search in the future)",
     "text_enter_server_ip": "Enter the server IP",
     "text_error_to_add_server": "Error while adding server, please try again",
-    "text_server_added": "Server successfully added. Server token: `{0}`\nDownload the latest client version here: https://github.com/Stranik2504/MonitorClientHandler/releases\nCommand to run: `./ClientHandler_* &`",
+    "text_server_added": "Server successfully added. Server token: `{0}`\nDownload the latest client version here: https://github.com/Stranik2504/MonitorClientHandler/releases\nCommand to run: `nohup ./MonitorClientHandler_* 0<&- &>/dev/null &` (Example: `nohup ./MonitorClientHandler_linux_amd64 0<&- &>/dev/null &`)",
     "text_error_ip": "Invalid IP address. Please enter again",
     "text_choose_server": "Choose one of the servers",
     "text_error_to_get_server": "Error while getting server information",
