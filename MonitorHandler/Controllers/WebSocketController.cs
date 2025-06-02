@@ -78,14 +78,24 @@ public class WebSocketController (
     /// </summary>
     public async Task Run()
     {
-        var buffer = new byte[1024 * 100];
+        var buffer = new byte[1024 * 16]; // Можно уменьшить размер, т.к. будем собирать в поток
 
-        // Read a message
-        var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
-
-        while (!result.CloseStatus.HasValue)
+        while (true)
         {
-            var receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
+            using var ms = new MemoryStream();
+            WebSocketReceiveResult? result;
+            do
+            {
+                result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
+                ms.Write(buffer, 0, result.Count);
+            }
+            while (!result.EndOfMessage && !result.CloseStatus.HasValue);
+
+            if (result.CloseStatus.HasValue)
+                break;
+
+            ms.Seek(0, SeekOrigin.Begin);
+            var receivedMessage = Encoding.UTF8.GetString(ms.ToArray());
             _logger.LogInformation("[WebSocketController]: Received message: {Message}", receivedMessage);
 
             var message = JsonConvert.DeserializeObject<ReceivedMessage>(receivedMessage);
@@ -93,7 +103,6 @@ public class WebSocketController (
             if (message == null)
             {
                 await Send(OkMessage, result.MessageType, result.EndOfMessage);
-
                 continue;
             }
 
@@ -230,13 +239,10 @@ public class WebSocketController (
             var answer = NeededRequest() ?? OkMessage;
 
             await Send(answer, result.MessageType, result.EndOfMessage);
-
-            // Read the next message
-            result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationToken);
         }
 
         // Close connection
-        await _webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, _cancellationToken);
+        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by server", _cancellationToken);
         await SetStatus(_isRestarted ? "restarted" : "offline");
         _logger.LogInformation("[WebSocketController]: WebSocket closed");
     }

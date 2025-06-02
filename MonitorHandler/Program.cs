@@ -68,11 +68,11 @@ namespace MonitorHandler
             await migrationManager.Migrate();
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
+            /*if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
-            }
+            }*/
 
             app.UseHttpsRedirection();
 
