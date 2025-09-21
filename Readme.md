@@ -51,6 +51,9 @@ dotnet run --project ViewTelegramBot/ViewTelegramBot.csproj
 
 Библиотека для работы с базой данных, используемая обеими частями проекта.
 
+## Клиент необходимый для установке на сервере или компьютере
+https://github.com/Stranik2504/MonitorClientHandler
+
 ### Зависимости
 
 - .NET Standard 2.0 или выше
