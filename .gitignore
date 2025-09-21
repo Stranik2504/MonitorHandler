@@ -489,3 +489,10 @@ files/
 **/files/
 MonitorHandler/files
 ViewTelegramBot/files
+# Docs
+_site/
+api/
+docs/
+docfx.json
+index.md
+toc.yml
