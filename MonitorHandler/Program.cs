@@ -3,117 +3,108 @@ using Database;
 using MonitorHandler.Controllers;
 using MonitorHandler.Utils;
 
-namespace MonitorHandler
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddSingleton<ManagerObject<Config>>(_ =>
 {
-    /// <summary>
-    /// Главный класс точки входа приложения MonitorHandler.
-    /// </summary>
-    public class Program
+    var manager = new ManagerObject<Config>("files/config.json");
+    manager.Load();
+
+    return manager;
+});
+
+builder.Services.AddSingleton<IDatabase>(x =>
+{
+    var config = x.GetRequiredService<ManagerObject<Config>>();
+
+    if (config.Obj == null)
+        throw new Exception("Config is null");
+
+    var db = new Database.MySql(
+        config.Obj.MainDbHost,
+        config.Obj.MainDbPort,
+        config.Obj.MainDbName,
+        config.Obj.MainDbUser,
+        config.Obj.MainDbPassword,
+        x.GetRequiredService<ILogger<Database.MySql>>()
+    );
+    db.Start();
+
+    return db;
+});
+
+builder.Services.AddSingleton<ServerManager>();
+builder.Services.AddHostedService<MetricsCleanupService>();
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        /// <summary>
-        /// Главная асинхронная точка входа приложения.
-        /// </summary>
-        /// <param name="args">Аргументы командной строки</param>
-        public static async Task Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+        Title = "MonitorHandler API",
+        Version = "v1"
+    });
 
-            // Add services to the container.
+    options.SupportNonNullableReferenceTypes();
 
-            builder.Services.AddSingleton<ManagerObject<Config>>(_ =>
-            {
-                var manager = new ManagerObject<Config>("files/config.json");
-                manager.Load();
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+});
 
-                return manager;
-            });
+var app = builder.Build();
 
-            builder.Services.AddSingleton<IDatabase>(x =>
-            {
-                var config = x.GetRequiredService<ManagerObject<Config>>();
+var db = app.Services.GetRequiredService<IDatabase>();
+var config = app.Services.GetRequiredService<ManagerObject<Config>>();
+var log = app.Services.GetRequiredService<ILogger<Program>>();
 
-                if (config.Obj == null)
-                    throw new Exception("Config is null");
+MigrationManager migrationManager = new(db, config.Obj?.VersionDb ?? 1);
+await migrationManager.Migrate();
 
-                var db = new Database.MySql(
-                    config.Obj.MainDbHost,
-                    config.Obj.MainDbPort,
-                    config.Obj.MainDbName,
-                    config.Obj.MainDbUser,
-                    config.Obj.MainDbPassword,
-                    x.GetRequiredService<ILogger<Database.MySql>>()
-                );
-                db.Start();
+// Configure the HTTP request pipeline.
+/*if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}*/
 
-                return db;
-            });
+app.UseSwagger(options =>
+{
+    options.RouteTemplate = "{documentName}/swagger.json";
+});
+app.UseSwaggerUI(options =>
+{
+    options.RoutePrefix = "";
+    options.SwaggerEndpoint("/v1/swagger.json", "LabaAPI v1");
+});
 
-            builder.Services.AddSingleton<ServerManager>();
-            builder.Services.AddHostedService<MetricsCleanupService>();
+app.UseHttpsRedirection();
 
-            builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-                {
-                    Title = "MonitorHandler API",
-                    Version = "v1"
-                });
+app.UseAuthorization();
 
-                options.SupportNonNullableReferenceTypes();
+app.MapControllers();
 
-                var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
-            });
+// WebSockets
+app.UseWebSockets();
 
-            var app = builder.Build();
+app.Map("/ws", async context =>
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<WebSocketController>>();
+        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        log.LogInformation("[WebSocket]: New connection from {Remote}", context.Connection.RemoteIpAddress);
 
-            var db = app.Services.GetRequiredService<IDatabase>();
-            var config = app.Services.GetRequiredService<ManagerObject<Config>>();
-            var log = app.Services.GetRequiredService<ILogger<Program>>();
-
-            MigrationManager migrationManager = new(db, config.Obj?.VersionDb ?? 1);
-            await migrationManager.Migrate();
-
-            // Configure the HTTP request pipeline.
-            /*if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }*/
-
-            app.UseSwagger();
-            app.UseSwaggerUI();
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
-            app.MapControllers();
-
-            // WebSockets
-            app.UseWebSockets();
-
-            app.Map("/ws", async context =>
-            {
-                if (context.WebSockets.IsWebSocketRequest)
-                {
-                    var logger = app.Services.GetRequiredService<ILogger<WebSocketController>>();
-                    var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                    log.LogInformation("[WebSocket]: New connection from {Remote}", context.Connection.RemoteIpAddress);
-
-                    var controller = new WebSocketController(logger, db, webSocket, config.Obj ?? new Config());
-                    await Task.Run(controller.Run);
-                }
-                else
-                {
-                    context.Response.StatusCode = 400;
-                }
-            });
-
-            await app.RunAsync();
-        }
+        var controller = new WebSocketController(logger, db, webSocket, config.Obj ?? new Config());
+        await Task.Run(controller.Run);
     }
-}
+    else
+    {
+        context.Response.StatusCode = 400;
+    }
+});
+
+app.Run();
